@@ -1,0 +1,18 @@
+{
+  "headers": {
+    "message_id": "msg_shp_cancelled_01jxyzabc006",
+    "correlation_id": "cor_fulfillment_01jxyzabc001",
+    "causation_id": "msg_shp_cancel_req_01jxyzabc002",
+    "idempotency_key": "idem-cancel-shp_demo_001",
+    "schema_version": "v1",
+    "occurred_at": "2026-05-31T11:00:01Z",
+    "producer": "stockflow-delivery-mock"
+  },
+  "payload": {
+    "shipment_id": "shp_demo_001",
+    "order_id": "ord_demo_001",
+    "status": "cancelled",
+    "cancelled_at": "2026-05-31T11:00:01Z",
+    "reason": "customer_cancelled"
+  }
+}

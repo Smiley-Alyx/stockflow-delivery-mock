@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stockflow.local/contracts/messages/common/delivery-address.json",
+  "title": "DeliveryAddress",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recipient_name",
+    "country_code",
+    "city",
+    "postal_code",
+    "street_line1"
+  ],
+  "properties": {
+    "recipient_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "country_code": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$"
+    },
+    "city": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "postal_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "street_line1": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "street_line2": {
+      "type": ["string", "null"],
+      "maxLength": 256
+    },
+    "region": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "phone": {
+      "type": ["string", "null"],
+      "maxLength": 32
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stockflow.local/contracts/messages/common/failure-code.json",
+  "title": "DeliveryFailureCode",
+  "type": "string",
+  "enum": [
+    "address_invalid",
+    "creation_failed",
+    "pickup_delay",
+    "lost_in_transit",
+    "delivery_failed",
+    "provider_unavailable",
+    "processing_delay",
+    "shipment_not_found",
+    "shipment_already_in_transit",
+    "shipment_already_cancelled",
+    "shipment_already_delivered"
+  ]
+}

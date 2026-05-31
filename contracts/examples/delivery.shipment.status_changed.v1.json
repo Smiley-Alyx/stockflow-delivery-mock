@@ -1,0 +1,20 @@
+{
+  "headers": {
+    "message_id": "msg_shp_status_01jxyzabc005",
+    "correlation_id": "cor_fulfillment_01jxyzabc001",
+    "causation_id": "msg_shp_created_01jxyzabc003",
+    "idempotency_key": "idem-shp-status-shp_demo_001-label_generated",
+    "schema_version": "v1",
+    "occurred_at": "2026-05-31T10:25:00Z",
+    "producer": "stockflow-delivery-mock"
+  },
+  "payload": {
+    "shipment_id": "shp_demo_001",
+    "order_id": "ord_demo_001",
+    "previous_status": "created",
+    "current_status": "label_generated",
+    "changed_at": "2026-05-31T10:25:00Z",
+    "reason": "label_generated",
+    "tracking_number": "TRK-SHP-DEMO-001"
+  }
+}

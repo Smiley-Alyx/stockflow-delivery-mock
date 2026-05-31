@@ -1,0 +1,18 @@
+{
+  "headers": {
+    "message_id": "msg_shp_cancel_failed_01jxyzabc007",
+    "correlation_id": "cor_fulfillment_01jxyzabc003",
+    "causation_id": "msg_shp_cancel_req_01jxyzabc007",
+    "idempotency_key": "idem-cancel-shp_demo_003",
+    "schema_version": "v1",
+    "occurred_at": "2026-05-31T12:00:01Z",
+    "producer": "stockflow-delivery-mock"
+  },
+  "payload": {
+    "shipment_id": "shp_demo_003",
+    "order_id": "ord_demo_003",
+    "failure_code": "shipment_already_in_transit",
+    "failure_message": "Shipment is already in transit and cannot be cancelled.",
+    "current_status": "in_transit"
+  }
+}

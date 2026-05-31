@@ -98,6 +98,12 @@ Additional debug, metrics, and messaging endpoints will be added in later steps.
 make test
 ```
 
+## Messaging contracts
+
+AsyncAPI contract, JSON Schemas, and examples live in [`contracts/`](contracts/).
+See [`contracts/README.md`](contracts/README.md) for routing keys, headers,
+correlation/idempotency rules, and RabbitMQ topology.
+
 ## Portfolio scope
 
 This repository is part of a highload-oriented marketplace backend case study.

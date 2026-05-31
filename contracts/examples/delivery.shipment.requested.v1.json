@@ -1,0 +1,32 @@
+{
+  "headers": {
+    "message_id": "msg_shp_req_01jxyzabc001",
+    "correlation_id": "cor_fulfillment_01jxyzabc001",
+    "causation_id": "msg_order_paid_01jxyzabc001",
+    "idempotency_key": "idem-shp-ord_demo_001",
+    "schema_version": "v1",
+    "occurred_at": "2026-05-31T10:20:00Z",
+    "producer": "stockflow-market"
+  },
+  "payload": {
+    "shipment_id": "shp_demo_001",
+    "order_id": "ord_demo_001",
+    "delivery_address": {
+      "recipient_name": "Jane Doe",
+      "country_code": "RU",
+      "city": "Moscow",
+      "postal_code": "101000",
+      "street_line1": "Red Square 1",
+      "street_line2": "Apt 2",
+      "region": "Moscow Oblast",
+      "phone": "+79990001122"
+    },
+    "carrier_profile": {
+      "carrier_code": "stockflow-express",
+      "service_level": "standard"
+    },
+    "metadata": {
+      "fulfillment_id": "ful_demo_001"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stockflow.local/contracts/messages/common/shipment-status.json",
+  "title": "ShipmentStatus",
+  "type": "string",
+  "enum": [
+    "created",
+    "label_generated",
+    "picked_up",
+    "in_transit",
+    "out_for_delivery",
+    "delivered",
+    "delivery_failed",
+    "return_requested",
+    "return_in_transit",
+    "returned",
+    "cancelled"
+  ]
+}

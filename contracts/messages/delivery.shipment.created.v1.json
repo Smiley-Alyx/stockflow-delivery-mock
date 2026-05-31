@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stockflow.local/contracts/messages/delivery.shipment.created.v1.json",
+  "title": "DeliveryShipmentCreatedV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "shipment_id",
+    "order_id",
+    "status",
+    "carrier_profile",
+    "tracking_number",
+    "created_at"
+  ],
+  "properties": {
+    "shipment_id": {
+      "type": "string",
+      "pattern": "^shp_[a-z0-9_]+$",
+      "maxLength": 64
+    },
+    "order_id": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "status": {
+      "type": "string",
+      "const": "created"
+    },
+    "carrier_profile": {
+      "$ref": "./common/carrier-profile.json"
+    },
+    "tracking_number": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

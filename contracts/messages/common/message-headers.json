@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stockflow.local/contracts/messages/common/message-headers.json",
+  "title": "MessageHeaders",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "message_id",
+    "correlation_id",
+    "causation_id",
+    "idempotency_key",
+    "schema_version",
+    "occurred_at",
+    "producer"
+  ],
+  "properties": {
+    "message_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Unique identifier for this message instance.",
+      "examples": ["msg_01jxyzabc123"]
+    },
+    "correlation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Business correlation identifier propagated across the delivery flow.",
+      "examples": ["cor_01jxyzabc123"]
+    },
+    "causation_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "message_id of the message that caused this event.",
+      "examples": ["msg_01jxyzabc122"]
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Caller-provided idempotency key for safe retries.",
+      "examples": ["idem-shp-ord_demo_001"]
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "v1",
+      "description": "Payload schema version."
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when the event occurred."
+    },
+    "producer": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Service that produced the message.",
+      "examples": ["stockflow-market", "stockflow-delivery-mock"]
+    }
+  }
+}

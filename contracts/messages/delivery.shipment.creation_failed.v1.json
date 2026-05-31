@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stockflow.local/contracts/messages/delivery.shipment.creation_failed.v1.json",
+  "title": "DeliveryShipmentCreationFailedV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "shipment_id",
+    "order_id",
+    "failure_code",
+    "failure_message"
+  ],
+  "properties": {
+    "shipment_id": {
+      "type": "string",
+      "pattern": "^shp_[a-z0-9_]+$",
+      "maxLength": 64
+    },
+    "order_id": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "failure_code": {
+      "$ref": "./common/failure-code.json"
+    },
+    "failure_message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    }
+  }
+}

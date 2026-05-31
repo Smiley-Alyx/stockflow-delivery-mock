@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "message_id": "msg_shp_creation_failed_01jxyzabc004",
+    "correlation_id": "cor_fulfillment_01jxyzabc002",
+    "causation_id": "msg_shp_req_01jxyzabc004",
+    "idempotency_key": "idem-shp-ord_demo_002",
+    "schema_version": "v1",
+    "occurred_at": "2026-05-31T10:21:00Z",
+    "producer": "stockflow-delivery-mock"
+  },
+  "payload": {
+    "shipment_id": "shp_demo_002",
+    "order_id": "ord_demo_002",
+    "failure_code": "address_invalid",
+    "failure_message": "Delivery address could not be validated for carrier routing."
+  }
+}

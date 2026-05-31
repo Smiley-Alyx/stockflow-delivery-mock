@@ -1,0 +1,241 @@
+asyncapi: '2.6.0'
+info:
+  title: Stockflow Delivery Mock
+  version: 1.0.0
+  description: |
+    AsyncAPI contract for the external sandbox delivery provider used by
+    `stockflow-market`.
+
+    The delivery mock consumes shipment create and cancel requests from the
+    marketplace and publishes shipment lifecycle events back to RabbitMQ.
+
+  contact:
+    name: Stockflow Delivery Mock
+  license:
+    name: MIT
+
+defaultContentType: application/json
+
+tags:
+  - name: delivery
+    description: Shipment creation, tracking, and cancellation lifecycle
+
+servers:
+  rabbitmq-local:
+    url: amqp://localhost:5674
+    protocol: amqp
+    description: Local RabbitMQ broker from docker-compose
+    bindings:
+      amqp:
+        virtualHost: /
+        exchange:
+          name: stockflow.delivery
+          type: topic
+          durable: true
+
+channels:
+  delivery.shipment.requested.v1:
+    description: Marketplace requests shipment creation from the delivery provider mock.
+    subscribe:
+      operationId: onDeliveryShipmentRequested
+      summary: Consume shipment creation request
+      message:
+        $ref: '#/components/messages/DeliveryShipmentRequestedV1'
+      bindings:
+        amqp:
+          ack: true
+          bindingVersion: 0.3.0
+          queue:
+            name: stockflow.delivery.requests
+            durable: true
+            exclusive: false
+            autoDelete: false
+
+  delivery.shipment.cancel_requested.v1:
+    description: Marketplace requests shipment cancellation.
+    subscribe:
+      operationId: onDeliveryShipmentCancelRequested
+      summary: Consume shipment cancel request
+      message:
+        $ref: '#/components/messages/DeliveryShipmentCancelRequestedV1'
+
+  delivery.shipment.created.v1:
+    description: Delivery mock publishes successful shipment creation.
+    publish:
+      operationId: publishDeliveryShipmentCreated
+      summary: Publish shipment created
+      message:
+        $ref: '#/components/messages/DeliveryShipmentCreatedV1'
+
+  delivery.shipment.creation_failed.v1:
+    description: Delivery mock publishes failed shipment creation.
+    publish:
+      operationId: publishDeliveryShipmentCreationFailed
+      summary: Publish shipment creation failed
+      message:
+        $ref: '#/components/messages/DeliveryShipmentCreationFailedV1'
+
+  delivery.shipment.status_changed.v1:
+    description: Delivery mock publishes shipment status transition.
+    publish:
+      operationId: publishDeliveryShipmentStatusChanged
+      summary: Publish shipment status changed
+      message:
+        $ref: '#/components/messages/DeliveryShipmentStatusChangedV1'
+
+  delivery.shipment.cancelled.v1:
+    description: Delivery mock publishes successful shipment cancellation.
+    publish:
+      operationId: publishDeliveryShipmentCancelled
+      summary: Publish shipment cancelled
+      message:
+        $ref: '#/components/messages/DeliveryShipmentCancelledV1'
+
+  delivery.shipment.cancel_failed.v1:
+    description: Delivery mock publishes failed shipment cancellation.
+    publish:
+      operationId: publishDeliveryShipmentCancelFailed
+      summary: Publish shipment cancel failed
+      message:
+        $ref: '#/components/messages/DeliveryShipmentCancelFailedV1'
+
+components:
+  messages:
+    DeliveryShipmentRequestedV1:
+      name: delivery.shipment.requested.v1
+      title: Delivery shipment requested
+      summary: Request provider shipment creation for an order
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        $ref: './messages/delivery.shipment.requested.v1.json'
+      examples:
+        - name: happyPathStandardDelivery
+          headers:
+            message_id: msg_shp_req_01jxyzabc001
+            correlation_id: cor_fulfillment_01jxyzabc001
+            causation_id: msg_order_paid_01jxyzabc001
+            idempotency_key: idem-shp-ord_demo_001
+            schema_version: v1
+            occurred_at: '2026-05-31T10:20:00Z'
+            producer: stockflow-market
+          payload:
+            $ref: './examples/delivery.shipment.requested.v1.json#/payload'
+
+    DeliveryShipmentCancelRequestedV1:
+      name: delivery.shipment.cancel_requested.v1
+      title: Delivery shipment cancel requested
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        $ref: './messages/delivery.shipment.cancel_requested.v1.json'
+      examples:
+        - name: customerCancel
+          headers:
+            message_id: msg_shp_cancel_req_01jxyzabc002
+            correlation_id: cor_fulfillment_01jxyzabc001
+            causation_id: msg_customer_cancel_01jxyzabc002
+            idempotency_key: idem-cancel-shp_demo_001
+            schema_version: v1
+            occurred_at: '2026-05-31T11:00:00Z'
+            producer: stockflow-market
+          payload:
+            $ref: './examples/delivery.shipment.cancel_requested.v1.json#/payload'
+
+    DeliveryShipmentCreatedV1:
+      name: delivery.shipment.created.v1
+      title: Delivery shipment created
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        $ref: './messages/delivery.shipment.created.v1.json'
+      examples:
+        - name: created
+          headers:
+            message_id: msg_shp_created_01jxyzabc003
+            correlation_id: cor_fulfillment_01jxyzabc001
+            causation_id: msg_shp_req_01jxyzabc001
+            idempotency_key: idem-shp-ord_demo_001
+            schema_version: v1
+            occurred_at: '2026-05-31T10:20:01Z'
+            producer: stockflow-delivery-mock
+          payload:
+            $ref: './examples/delivery.shipment.created.v1.json#/payload'
+
+    DeliveryShipmentCreationFailedV1:
+      name: delivery.shipment.creation_failed.v1
+      title: Delivery shipment creation failed
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        $ref: './messages/delivery.shipment.creation_failed.v1.json'
+
+    DeliveryShipmentStatusChangedV1:
+      name: delivery.shipment.status_changed.v1
+      title: Delivery shipment status changed
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        $ref: './messages/delivery.shipment.status_changed.v1.json'
+      examples:
+        - name: labelGenerated
+          headers:
+            message_id: msg_shp_status_01jxyzabc005
+            correlation_id: cor_fulfillment_01jxyzabc001
+            causation_id: msg_shp_created_01jxyzabc003
+            idempotency_key: idem-shp-status-shp_demo_001-label_generated
+            schema_version: v1
+            occurred_at: '2026-05-31T10:25:00Z'
+            producer: stockflow-delivery-mock
+          payload:
+            $ref: './examples/delivery.shipment.status_changed.v1.json#/payload'
+
+    DeliveryShipmentCancelledV1:
+      name: delivery.shipment.cancelled.v1
+      title: Delivery shipment cancelled
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        $ref: './messages/delivery.shipment.cancelled.v1.json'
+
+    DeliveryShipmentCancelFailedV1:
+      name: delivery.shipment.cancel_failed.v1
+      title: Delivery shipment cancel failed
+      contentType: application/json
+      headers:
+        $ref: '#/components/schemas/MessageHeaders'
+      payload:
+        $ref: './messages/delivery.shipment.cancel_failed.v1.json'
+
+  schemas:
+    MessageHeaders:
+      $ref: './messages/common/message-headers.json'
+
+  parameters:
+    routingKey:
+      description: RabbitMQ routing key equal to the message name.
+      schema:
+        type: string
+
+x-rabbitmq:
+  exchange: stockflow.delivery
+  deadLetterExchange: stockflow.delivery.dlx
+  queues:
+    requests: stockflow.delivery.requests
+    retry: stockflow.delivery.requests.retry
+    dlq: stockflow.delivery.requests.dlq
+  incomingRoutingKeys:
+    - delivery.shipment.requested.v1
+    - delivery.shipment.cancel_requested.v1
+  outgoingRoutingKeys:
+    - delivery.shipment.created.v1
+    - delivery.shipment.creation_failed.v1
+    - delivery.shipment.status_changed.v1
+    - delivery.shipment.cancelled.v1
+    - delivery.shipment.cancel_failed.v1

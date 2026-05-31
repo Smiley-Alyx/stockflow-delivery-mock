@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stockflow.local/contracts/messages/common/carrier-profile.json",
+  "title": "CarrierProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "carrier_code",
+    "service_level"
+  ],
+  "properties": {
+    "carrier_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "service_level": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    }
+  }
+}
