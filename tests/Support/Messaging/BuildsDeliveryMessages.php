@@ -12,15 +12,19 @@ trait BuildsDeliveryMessages
     /**
      * @param array<string, mixed> $payload
      */
-    protected function incoming(string $routingKey, array $payload): IncomingMessage
-    {
+    protected function incoming(
+        string $routingKey,
+        array $payload,
+        string $idempotencyKey = 'idem_test_001',
+        string $messageId = 'msg_test_001',
+    ): IncomingMessage {
         return new IncomingMessage(
             routingKey: $routingKey,
             headers: new MessageHeaders(
-                messageId: 'msg_test_001',
+                messageId: $messageId,
                 correlationId: 'cor_test_001',
                 causationId: 'msg_cause_001',
-                idempotencyKey: 'idem_test_001',
+                idempotencyKey: $idempotencyKey,
                 schemaVersion: 'v1',
                 occurredAt: '2026-05-31T10:20:00Z',
                 producer: 'stockflow-market',

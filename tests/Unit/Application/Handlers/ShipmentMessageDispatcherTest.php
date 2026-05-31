@@ -4,48 +4,32 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Handlers;
 
-use App\Application\Handlers\ShipmentCancelRequestedHandler;
 use App\Application\Handlers\ShipmentMessageDispatcher;
-use App\Application\Handlers\ShipmentRequestedHandler;
-use App\Application\Mappers\ShipmentEventPayloadMapper;
-use App\Application\Mappers\ShipmentMessageMapper;
 use App\Domain\Delivery\Enums\ShipmentStatus;
-use App\Infrastructure\Messaging\RabbitMq\OutgoingMessageHeadersFactory;
-use App\Infrastructure\Messaging\RabbitMq\RabbitMqDeliveryEventPublisher;
-use App\Infrastructure\Persistence\InMemoryShipmentRepository;
-use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\DeliveryTestFixtures;
 use Tests\Support\Messaging\BuildsDeliveryMessages;
-use Tests\Support\Messaging\RecordingRabbitMqMessagePublisher;
+use Tests\Support\Messaging\IdempotentShipmentMessageDispatcherFactory;
 
 final class ShipmentMessageDispatcherTest extends TestCase
 {
     use BuildsDeliveryMessages;
 
-    private ShipmentLifecycleService $shipments;
+    private \App\Domain\Delivery\Services\ShipmentLifecycleService $shipments;
 
     private ShipmentMessageDispatcher $dispatcher;
 
-    private RecordingRabbitMqMessagePublisher $recordingPublisher;
+    private \Tests\Support\Messaging\RecordingRabbitMqMessagePublisher $recordingPublisher;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $repository = new InMemoryShipmentRepository();
-        $this->shipments = new ShipmentLifecycleService($repository);
-        $mapper = new ShipmentMessageMapper();
-        $this->recordingPublisher = new RecordingRabbitMqMessagePublisher();
-        $eventPublisher = new RabbitMqDeliveryEventPublisher(
-            new ShipmentEventPayloadMapper(new OutgoingMessageHeadersFactory('stockflow-delivery-mock')),
+        [
+            $this->dispatcher,
+            $this->shipments,
             $this->recordingPublisher,
-        );
-
-        $this->dispatcher = new ShipmentMessageDispatcher(
-            new ShipmentRequestedHandler($mapper, $this->shipments, $eventPublisher),
-            new ShipmentCancelRequestedHandler($mapper, $this->shipments, $eventPublisher),
-        );
+        ] = IdempotentShipmentMessageDispatcherFactory::create();
     }
 
     public function test_dispatches_shipment_requested_message_and_publishes_result_events(): void

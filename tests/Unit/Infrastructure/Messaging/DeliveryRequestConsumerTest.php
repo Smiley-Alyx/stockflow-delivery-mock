@@ -8,9 +8,13 @@ use App\Application\Handlers\ShipmentCancelRequestedHandler;
 use App\Application\Handlers\ShipmentMessageDispatcher;
 use App\Application\Handlers\ShipmentRequestedHandler;
 use App\Application\Mappers\ShipmentMessageMapper;
+use App\Domain\Delivery\Services\Idempotency\ShipmentIdempotencyService;
 use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestConsumer;
 use App\Infrastructure\Messaging\RabbitMq\NullDeliveryEventPublisher;
+use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
+use App\Infrastructure\Persistence\InMemoryIdempotencyRecordRepository;
+use App\Infrastructure\Persistence\InMemoryPublishedEventRecordRepository;
 use Tests\Support\Messaging\RecordingRabbitMqMessagePublisher;
 use App\Infrastructure\Persistence\InMemoryShipmentRepository;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestFailureHandler;
@@ -28,9 +32,17 @@ final class DeliveryRequestConsumerTest extends TestCase
         $shipments = new ShipmentLifecycleService($repository);
         $mapper = new ShipmentMessageMapper();
         $eventPublisher = new NullDeliveryEventPublisher();
+        $idempotency = new ShipmentIdempotencyService(new InMemoryIdempotencyRecordRepository());
+        $publishedEventStore = new PublishedEventStore(new InMemoryPublishedEventRecordRepository());
         $dispatcher = new ShipmentMessageDispatcher(
-            new ShipmentRequestedHandler($mapper, $shipments, $eventPublisher),
-            new ShipmentCancelRequestedHandler($mapper, $shipments, $eventPublisher),
+            new ShipmentRequestedHandler($mapper, $shipments, $eventPublisher, $idempotency),
+            new ShipmentCancelRequestedHandler(
+                $mapper,
+                $shipments,
+                $eventPublisher,
+                $idempotency,
+                $publishedEventStore,
+            ),
         );
 
         $consumer = new DeliveryRequestConsumer(
