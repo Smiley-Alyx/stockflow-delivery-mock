@@ -5,12 +5,19 @@ declare(strict_types=1);
 namespace App\Application\Handlers;
 
 use App\Application\Mappers\ShipmentMessageMapper;
+use App\Domain\Delivery\DTO\CreateShipmentCommand;
 use App\Domain\Delivery\Enums\ShipmentStatus;
 use App\Domain\Delivery\Exceptions\InvalidShipmentStateException;
+use App\Domain\Delivery\Exceptions\ShipmentNotFoundException;
+use App\Domain\Delivery\Models\PublishedEventRecord;
+use App\Domain\Delivery\Models\Shipment;
+use App\Domain\Delivery\Services\Debug\DeliveryDegradationSimulator;
+use App\Domain\Delivery\Services\Debug\DeliveryOperation;
 use App\Domain\Delivery\Services\Idempotency\ShipmentIdempotencyService;
 use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\IncomingMessage;
+use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
 use App\Support\DeliveryStructuredLogger;
 
 final class ShipmentRequestedHandler
@@ -20,6 +27,8 @@ final class ShipmentRequestedHandler
         private readonly ShipmentLifecycleService $shipments,
         private readonly DeliveryEventPublisher $eventPublisher,
         private readonly ShipmentIdempotencyService $idempotency,
+        private readonly DeliveryDegradationSimulator $degradationSimulator,
+        private readonly PublishedEventStore $publishedEventStore,
     ) {
     }
 
@@ -36,15 +45,20 @@ final class ShipmentRequestedHandler
             'idempotency_key' => $message->headers->idempotencyKey,
         ]);
 
+        $this->degradationSimulator->beforeProcessing(DeliveryOperation::ShipmentCreate);
+
         $existing = $this->idempotency->findCreateRecord($shipmentId, $message->headers->idempotencyKey);
 
         if ($existing !== null) {
-            $shipment = $this->shipments->get($shipmentId);
-            $this->idempotency->assertMatchingFingerprint(
-                $existing,
-                $this->idempotency->createFingerprint($shipment),
-            );
-            $this->replayCreateEvents($message, $shipment);
+            $this->replayExistingCreate($message, $command, $existing);
+
+            return;
+        }
+
+        $creationFailure = $this->degradationSimulator->creationFailure();
+
+        if ($creationFailure !== null) {
+            $this->handleCreationFailure($message, $command, $creationFailure['code'], $creationFailure['message']);
 
             return;
         }
@@ -75,7 +89,66 @@ final class ShipmentRequestedHandler
         );
     }
 
-    private function replayCreateEvents(IncomingMessage $message, \App\Domain\Delivery\Models\Shipment $shipment): void
+    private function replayExistingCreate(
+        IncomingMessage $message,
+        CreateShipmentCommand $command,
+        \App\Domain\Delivery\Models\IdempotencyRecord $existing,
+    ): void {
+        try {
+            $shipment = $this->shipments->get($command->shipmentId ?? '');
+            $this->idempotency->assertMatchingFingerprint(
+                $existing,
+                $this->idempotency->createFingerprint($shipment),
+            );
+            $this->replayCreateEvents($message, $shipment);
+        } catch (ShipmentNotFoundException) {
+            $this->replayCreationFailure($message, $command);
+        }
+    }
+
+    private function handleCreationFailure(
+        IncomingMessage $message,
+        CreateShipmentCommand $command,
+        string $failureCode,
+        string $failureMessage,
+    ): void {
+        $shipmentId = (string) $command->shipmentId;
+
+        $this->idempotency->storeCreateRecord(
+            $shipmentId,
+            $message->headers->idempotencyKey,
+            $this->idempotency->creationFailureFingerprint($shipmentId, $failureCode),
+        );
+
+        $this->eventPublisher->publishShipmentCreationFailed(
+            $message,
+            $command,
+            $failureCode,
+            $failureMessage,
+        );
+    }
+
+    private function replayCreationFailure(IncomingMessage $message, CreateShipmentCommand $command): void
+    {
+        $failedEvent = $this->publishedEventStore->find(
+            PublishedEventRecord::OPERATION_SHIPMENT_CREATION_FAILED,
+            (string) $command->shipmentId,
+            $message->headers->idempotencyKey,
+        );
+
+        if ($failedEvent === null) {
+            throw new InvalidShipmentStateException('Missing stored creation failure for idempotent replay');
+        }
+
+        $this->eventPublisher->publishShipmentCreationFailed(
+            $message,
+            $command,
+            (string) $failedEvent->payload['failure_code'],
+            (string) $failedEvent->payload['failure_message'],
+        );
+    }
+
+    private function replayCreateEvents(IncomingMessage $message, Shipment $shipment): void
     {
         $this->eventPublisher->publishShipmentCreated($message, $shipment);
         $this->eventPublisher->publishShipmentStatusChanged(

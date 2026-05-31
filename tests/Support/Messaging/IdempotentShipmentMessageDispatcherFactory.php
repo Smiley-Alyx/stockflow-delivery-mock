@@ -9,6 +9,7 @@ use App\Application\Handlers\ShipmentMessageDispatcher;
 use App\Application\Handlers\ShipmentRequestedHandler;
 use App\Application\Mappers\ShipmentEventPayloadMapper;
 use App\Application\Mappers\ShipmentMessageMapper;
+use App\Domain\Delivery\Services\Debug\DeliveryDegradationSimulator;
 use App\Domain\Delivery\Services\Idempotency\ShipmentIdempotencyService;
 use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\IdempotentDeliveryEventPublisher;
@@ -17,12 +18,26 @@ use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
 use App\Infrastructure\Persistence\InMemoryIdempotencyRecordRepository;
 use App\Infrastructure\Persistence\InMemoryPublishedEventRecordRepository;
 use App\Infrastructure\Persistence\InMemoryShipmentRepository;
+use Tests\Support\Debug\TestFailureModeSupport;
 
 final class IdempotentShipmentMessageDispatcherFactory
 {
+    /**
+     * @return array{
+     *     0: ShipmentMessageDispatcher,
+     *     1: ShipmentLifecycleService,
+     *     2: RecordingRabbitMqMessagePublisher,
+     *     3: InMemoryIdempotencyRecordRepository,
+     *     4: InMemoryPublishedEventRecordRepository,
+     *     5: DeliveryDegradationSimulator
+     * }
+     */
     public static function create(
         ?InMemoryShipmentRepository $repository = null,
+        ?DeliveryDegradationSimulator $degradationSimulator = null,
     ): array {
+        TestFailureModeSupport::resetStateFile();
+
         $repository ??= new InMemoryShipmentRepository();
         $shipments = new ShipmentLifecycleService($repository);
         $mapper = new ShipmentMessageMapper();
@@ -31,23 +46,40 @@ final class IdempotentShipmentMessageDispatcherFactory
         $publishedEventRecords = new InMemoryPublishedEventRecordRepository();
         $idempotency = new ShipmentIdempotencyService($idempotencyRecords);
         $publishedEventStore = new PublishedEventStore($publishedEventRecords);
+        $degradationSimulator ??= TestFailureModeSupport::simulator();
         $eventPublisher = new IdempotentDeliveryEventPublisher(
             new ShipmentEventPayloadMapper(new OutgoingMessageHeadersFactory('stockflow-delivery-mock')),
             $recordingPublisher,
             $publishedEventStore,
+            $degradationSimulator,
         );
 
         $dispatcher = new ShipmentMessageDispatcher(
-            new ShipmentRequestedHandler($mapper, $shipments, $eventPublisher, $idempotency),
+            new ShipmentRequestedHandler(
+                $mapper,
+                $shipments,
+                $eventPublisher,
+                $idempotency,
+                $degradationSimulator,
+                $publishedEventStore,
+            ),
             new ShipmentCancelRequestedHandler(
                 $mapper,
                 $shipments,
                 $eventPublisher,
                 $idempotency,
                 $publishedEventStore,
+                $degradationSimulator,
             ),
         );
 
-        return [$dispatcher, $shipments, $recordingPublisher, $idempotencyRecords, $publishedEventRecords];
+        return [
+            $dispatcher,
+            $shipments,
+            $recordingPublisher,
+            $idempotencyRecords,
+            $publishedEventRecords,
+            $degradationSimulator,
+        ];
     }
 }

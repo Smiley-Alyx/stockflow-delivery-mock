@@ -15,11 +15,19 @@ use App\Infrastructure\Messaging\RabbitMq\OutgoingMessageHeadersFactory;
 use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
 use App\Infrastructure\Persistence\InMemoryPublishedEventRecordRepository;
 use PHPUnit\Framework\TestCase;
+use Tests\Support\Debug\TestFailureModeSupport;
 use Tests\Support\DeliveryTestFixtures;
 use Tests\Support\Messaging\RecordingRabbitMqMessagePublisher;
 
 final class IdempotentDeliveryEventPublisherTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        TestFailureModeSupport::resetStateFile();
+    }
+
     public function test_stores_event_on_first_publish(): void
     {
         $recording = new RecordingRabbitMqMessagePublisher();
@@ -85,6 +93,26 @@ final class IdempotentDeliveryEventPublisherTest extends TestCase
         );
     }
 
+    public function test_duplicate_response_mode_publishes_event_twice(): void
+    {
+        $manager = TestFailureModeSupport::manager();
+        $manager->set(\App\Domain\Delivery\Enums\FailureMode::DuplicateResponse);
+
+        $recording = new RecordingRabbitMqMessagePublisher();
+        $repository = new InMemoryPublishedEventRecordRepository();
+        $publisher = new IdempotentDeliveryEventPublisher(
+            new ShipmentEventPayloadMapper(new OutgoingMessageHeadersFactory('stockflow-delivery-mock')),
+            $recording,
+            new PublishedEventStore($repository),
+            TestFailureModeSupport::simulator($manager),
+        );
+
+        $publisher->publishShipmentCreated($this->incoming(), DeliveryTestFixtures::lifecycleService()->create(DeliveryTestFixtures::createShipmentCommand()));
+
+        $this->assertCount(2, $recording->published);
+        $this->assertSame($recording->published[0]->headers->messageId, $recording->published[1]->headers->messageId);
+    }
+
     private function publisher(
         RecordingRabbitMqMessagePublisher $recording,
         InMemoryPublishedEventRecordRepository $repository,
@@ -93,6 +121,7 @@ final class IdempotentDeliveryEventPublisherTest extends TestCase
             new ShipmentEventPayloadMapper(new OutgoingMessageHeadersFactory('stockflow-delivery-mock')),
             $recording,
             new PublishedEventStore($repository),
+            TestFailureModeSupport::simulator(),
         );
     }
 

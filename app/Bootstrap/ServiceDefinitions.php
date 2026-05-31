@@ -12,6 +12,8 @@ use App\Application\Mappers\ShipmentMessageMapper;
 use App\Domain\Delivery\Repositories\IdempotencyRecordRepository;
 use App\Domain\Delivery\Repositories\PublishedEventRecordRepository;
 use App\Domain\Delivery\Repositories\ShipmentRepository;
+use App\Domain\Delivery\Services\Debug\DeliveryDegradationSimulator;
+use App\Domain\Delivery\Services\Debug\FailureModeManager;
 use App\Domain\Delivery\Services\DemoResetService;
 use App\Domain\Delivery\Services\Idempotency\ShipmentIdempotencyService;
 use App\Domain\Delivery\Services\ShipmentLifecycleService;
@@ -77,7 +79,23 @@ final class ServiceDefinitions
                 $container->get(ShipmentRepository::class),
                 $container->get(IdempotencyRecordRepository::class),
                 $container->get(PublishedEventRecordRepository::class),
+                $container->get(FailureModeManager::class),
             ),
+            FailureModeManager::class => static function ($container): FailureModeManager {
+                /** @var array{degradation: array{failure_mode_state_file: string}} $config */
+                $config = $container->get('config');
+
+                return new FailureModeManager($config['degradation']['failure_mode_state_file']);
+            },
+            DeliveryDegradationSimulator::class => static function ($container): DeliveryDegradationSimulator {
+                /** @var array{degradation: array{processing_delay_ms: int}} $config */
+                $config = $container->get('config');
+
+                return new DeliveryDegradationSimulator(
+                    $container->get(FailureModeManager::class),
+                    $config['degradation']['processing_delay_ms'],
+                );
+            },
             HealthController::class => static function ($container): HealthController {
                 /** @var array{service_name: string} $config */
                 $config = $container->get('config');
@@ -93,6 +111,7 @@ final class ServiceDefinitions
 
                 return new DebugController(
                     $container->get(DemoResetService::class),
+                    $container->get(FailureModeManager::class),
                     $config['debug_enabled'],
                 );
             },
@@ -152,6 +171,7 @@ final class ServiceDefinitions
                 $container->get(ShipmentEventPayloadMapper::class),
                 $container->get(RabbitMqMessagePublisher::class),
                 $container->get(PublishedEventStore::class),
+                $container->get(DeliveryDegradationSimulator::class),
             ),
             DeliveryEventPublisher::class => static function ($container): DeliveryEventPublisher {
                 /** @var array{rabbitmq: array{publish_events: bool|string}} $config */
@@ -170,6 +190,8 @@ final class ServiceDefinitions
                 $container->get(ShipmentLifecycleService::class),
                 $container->get(DeliveryEventPublisher::class),
                 $container->get(ShipmentIdempotencyService::class),
+                $container->get(DeliveryDegradationSimulator::class),
+                $container->get(PublishedEventStore::class),
             ),
             ShipmentCancelRequestedHandler::class => static fn ($container): ShipmentCancelRequestedHandler => new ShipmentCancelRequestedHandler(
                 $container->get(ShipmentMessageMapper::class),
@@ -177,6 +199,7 @@ final class ServiceDefinitions
                 $container->get(DeliveryEventPublisher::class),
                 $container->get(ShipmentIdempotencyService::class),
                 $container->get(PublishedEventStore::class),
+                $container->get(DeliveryDegradationSimulator::class),
             ),
             ShipmentMessageDispatcher::class => static fn ($container): ShipmentMessageDispatcher => new ShipmentMessageDispatcher(
                 $container->get(ShipmentRequestedHandler::class),

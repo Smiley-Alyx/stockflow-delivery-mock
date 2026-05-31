@@ -8,6 +8,7 @@ use App\Application\Handlers\ShipmentCancelRequestedHandler;
 use App\Application\Handlers\ShipmentMessageDispatcher;
 use App\Application\Handlers\ShipmentRequestedHandler;
 use App\Application\Mappers\ShipmentMessageMapper;
+use App\Domain\Delivery\Services\Debug\DeliveryDegradationSimulator;
 use App\Domain\Delivery\Services\Idempotency\ShipmentIdempotencyService;
 use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestConsumer;
@@ -15,6 +16,7 @@ use App\Infrastructure\Messaging\RabbitMq\NullDeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
 use App\Infrastructure\Persistence\InMemoryIdempotencyRecordRepository;
 use App\Infrastructure\Persistence\InMemoryPublishedEventRecordRepository;
+use Tests\Support\Debug\TestFailureModeSupport;
 use Tests\Support\Messaging\RecordingRabbitMqMessagePublisher;
 use App\Infrastructure\Persistence\InMemoryShipmentRepository;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryDlqPublisher;
@@ -38,15 +40,24 @@ final class DeliveryRequestConsumerTest extends TestCase
         $eventPublisher = new NullDeliveryEventPublisher();
         $idempotency = new ShipmentIdempotencyService(new InMemoryIdempotencyRecordRepository());
         $publishedEventStore = new PublishedEventStore(new InMemoryPublishedEventRecordRepository());
+        $degradationSimulator = TestFailureModeSupport::simulator();
         $config = $this->config();
         $dispatcher = new ShipmentMessageDispatcher(
-            new ShipmentRequestedHandler($mapper, $shipments, $eventPublisher, $idempotency),
+            new ShipmentRequestedHandler(
+                $mapper,
+                $shipments,
+                $eventPublisher,
+                $idempotency,
+                $degradationSimulator,
+                $publishedEventStore,
+            ),
             new ShipmentCancelRequestedHandler(
                 $mapper,
                 $shipments,
                 $eventPublisher,
                 $idempotency,
                 $publishedEventStore,
+                $degradationSimulator,
             ),
         );
 

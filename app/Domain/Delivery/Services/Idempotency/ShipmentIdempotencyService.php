@@ -68,6 +68,15 @@ final class ShipmentIdempotencyService
         ]));
     }
 
+    public function creationFailureFingerprint(string $shipmentId, string $failureCode): string
+    {
+        return hash('sha256', implode('|', [
+            $shipmentId,
+            'creation_failed',
+            $failureCode,
+        ]));
+    }
+
     public function cancelSuccessFingerprint(Shipment $shipment): string
     {
         return hash('sha256', implode('|', [

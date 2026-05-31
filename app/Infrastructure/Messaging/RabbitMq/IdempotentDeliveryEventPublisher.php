@@ -10,6 +10,7 @@ use App\Domain\Delivery\DTO\CreateShipmentCommand;
 use App\Domain\Delivery\Enums\ShipmentStatus;
 use App\Domain\Delivery\Models\PublishedEventRecord;
 use App\Domain\Delivery\Models\Shipment;
+use App\Domain\Delivery\Services\Debug\DeliveryDegradationSimulator;
 use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\Exceptions\PublishedEventConflictException;
 use App\Support\DeliveryStructuredLogger;
@@ -20,6 +21,7 @@ final class IdempotentDeliveryEventPublisher implements DeliveryEventPublisher
         private readonly ShipmentEventPayloadMapper $payloadMapper,
         private readonly RabbitMqMessagePublisher $messagePublisher,
         private readonly PublishedEventStore $publishedEventStore,
+        private readonly DeliveryDegradationSimulator $degradationSimulator,
     ) {
     }
 
@@ -172,6 +174,7 @@ final class IdempotentDeliveryEventPublisher implements DeliveryEventPublisher
 
     private function publishEvent(PublishedDeliveryEvent $event, bool $storedReplay): void
     {
+        $this->degradationSimulator->assertPublishAllowed();
         $this->messagePublisher->publish($event);
 
         DeliveryStructuredLogger::info('delivery event published', [
@@ -182,6 +185,16 @@ final class IdempotentDeliveryEventPublisher implements DeliveryEventPublisher
             'idempotency_key' => $event->headers->idempotencyKey,
             'idempotent_event_replay' => $storedReplay,
         ]);
+
+        if (! $storedReplay && $this->degradationSimulator->shouldDuplicatePublishedResponse()) {
+            $this->messagePublisher->publish($event);
+
+            DeliveryStructuredLogger::info('delivery event duplicate published', [
+                'routing_key' => $event->routingKey,
+                'message_id' => $event->headers->messageId,
+                'idempotency_key' => $event->headers->idempotencyKey,
+            ]);
+        }
     }
 
     private function assertMatchingFingerprint(

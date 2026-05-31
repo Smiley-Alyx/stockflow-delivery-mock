@@ -61,5 +61,7 @@ final class AppFactory
         $app->post('/shipments/{shipmentId}/cancel', [$shipmentController, 'cancel']);
 
         $app->post('/debug/reset', [$debugController, 'reset']);
+        $app->get('/debug/failure-mode', [$debugController, 'showFailureMode']);
+        $app->post('/debug/failure-mode', [$debugController, 'setFailureMode']);
     }
 }

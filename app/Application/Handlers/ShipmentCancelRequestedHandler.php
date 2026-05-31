@@ -9,6 +9,8 @@ use App\Domain\Delivery\Enums\ShipmentStatus;
 use App\Domain\Delivery\Exceptions\InvalidShipmentStateException;
 use App\Domain\Delivery\Exceptions\ShipmentNotFoundException;
 use App\Domain\Delivery\Models\PublishedEventRecord;
+use App\Domain\Delivery\Services\Debug\DeliveryDegradationSimulator;
+use App\Domain\Delivery\Services\Debug\DeliveryOperation;
 use App\Domain\Delivery\Services\Idempotency\ShipmentIdempotencyService;
 use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
@@ -24,6 +26,7 @@ final class ShipmentCancelRequestedHandler
         private readonly DeliveryEventPublisher $eventPublisher,
         private readonly ShipmentIdempotencyService $idempotency,
         private readonly PublishedEventStore $publishedEventStore,
+        private readonly DeliveryDegradationSimulator $degradationSimulator,
     ) {
     }
 
@@ -43,6 +46,21 @@ final class ShipmentCancelRequestedHandler
 
         if ($existing !== null) {
             $this->replayCancelEvents($message, $command);
+
+            return;
+        }
+
+        $this->degradationSimulator->beforeProcessing(DeliveryOperation::ShipmentCancel);
+
+        $simulatedCancelFailure = $this->degradationSimulator->cancelFailure();
+
+        if ($simulatedCancelFailure !== null) {
+            $this->handleSimulatedCancelFailure(
+                $message,
+                $command,
+                $simulatedCancelFailure['code'],
+                $simulatedCancelFailure['message'],
+            );
 
             return;
         }
@@ -104,6 +122,33 @@ final class ShipmentCancelRequestedHandler
         );
 
         $this->eventPublisher->publishShipmentCancelled($message, $shipment);
+    }
+
+    private function handleSimulatedCancelFailure(
+        IncomingMessage $message,
+        \App\Domain\Delivery\DTO\CancelShipmentCommand $command,
+        string $failureCode,
+        string $failureMessage,
+    ): void {
+        $currentStatus = $this->resolveCurrentStatus($command->shipmentId);
+
+        $this->idempotency->storeCancelRecord(
+            $command->shipmentId,
+            $command->idempotencyKey,
+            $this->idempotency->cancelFailureFingerprint(
+                $command->shipmentId,
+                $failureCode,
+                $currentStatus,
+            ),
+        );
+
+        $this->eventPublisher->publishShipmentCancelFailed(
+            $message,
+            $command,
+            $failureCode,
+            $failureMessage,
+            $currentStatus,
+        );
     }
 
     private function replayCancelEvents(IncomingMessage $message, \App\Domain\Delivery\DTO\CancelShipmentCommand $command): void

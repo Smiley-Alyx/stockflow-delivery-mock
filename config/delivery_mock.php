@@ -6,6 +6,11 @@ return [
     'service_name' => getenv('DELIVERY_MOCK_SERVICE_NAME') ?: 'stockflow-delivery-mock',
     'http_port' => (int) (getenv('DELIVERY_MOCK_HTTP_PORT') ?: 8080),
     'debug_enabled' => filter_var(getenv('DELIVERY_MOCK_DEBUG_ENABLED') ?: 'false', FILTER_VALIDATE_BOOL),
+    'degradation' => [
+        'processing_delay_ms' => (int) (getenv('DELIVERY_MOCK_PROCESSING_DELAY_MS') ?: 0),
+        'failure_mode_state_file' => getenv('DELIVERY_MOCK_FAILURE_MODE_STATE_FILE')
+            ?: dirname(__DIR__) . '/var/state/failure-mode.json',
+    ],
     'rabbitmq' => [
         'host' => getenv('RABBITMQ_HOST') ?: '127.0.0.1',
         'port' => (int) (getenv('RABBITMQ_PORT') ?: 5672),

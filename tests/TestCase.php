@@ -9,6 +9,7 @@ use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use PHPUnit\Framework\TestCase as BaseTestCase;
 use Psr\Container\ContainerInterface;
 use Slim\App;
+use Tests\Support\Debug\TestFailureModeSupport;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -23,6 +24,8 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         putenv('DELIVERY_MOCK_DEBUG_ENABLED=true');
+        putenv('DELIVERY_MOCK_FAILURE_MODE_STATE_FILE=' . TestFailureModeSupport::tempStateFile());
+        TestFailureModeSupport::resetStateFile();
 
         $this->container = AppFactory::buildContainer();
         $this->app = AppFactory::create($this->container);
