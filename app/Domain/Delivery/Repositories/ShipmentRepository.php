@@ -16,4 +16,5 @@ interface ShipmentRepository
      * @return list<Shipment>
      */
     public function all(): array;
+    public function clear(): void;
 }

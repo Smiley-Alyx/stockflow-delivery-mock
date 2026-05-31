@@ -69,8 +69,15 @@ make docker-down
 | `GET` | `/` | Service metadata |
 | `GET` | `/health` | Liveness probe |
 | `GET` | `/ready` | Readiness probe |
+| `GET` | `/shipments` | List shipments |
+| `GET` | `/shipments/{shipment_id}` | Shipment details |
+| `POST` | `/shipments/{shipment_id}/advance-status` | Advance shipment to the next default status |
+| `POST` | `/shipments/{shipment_id}/mark-delivered` | Mark shipment as delivered |
+| `POST` | `/shipments/{shipment_id}/mark-failed` | Mark shipment as delivery failed |
+| `POST` | `/shipments/{shipment_id}/cancel` | Cancel shipment |
+| `POST` | `/debug/reset` | Clear in-memory shipment state (requires debug mode) |
 
-Additional shipment, debug, and metrics endpoints will be added in later steps.
+Additional debug, metrics, and messaging endpoints will be added in later steps.
 
 ## Configuration
 

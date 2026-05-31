@@ -95,6 +95,50 @@ final class ShipmentLifecycleService
         return $this->shipments->all();
     }
 
+    public function markDelivered(
+        string $shipmentId,
+        \DateTimeImmutable $occurredAt,
+        ?string $reason = null,
+    ): Shipment {
+        $shipment = $this->findOrFail($shipmentId);
+
+        if (! $shipment->status()->canTransitionTo(ShipmentStatus::Delivered)) {
+            throw InvalidShipmentStateException::cannotMarkDelivered($shipment);
+        }
+
+        $shipment->transitionTo(
+            ShipmentStatus::Delivered,
+            $occurredAt,
+            $reason ?? 'marked_delivered',
+        );
+
+        $this->shipments->save($shipment);
+
+        return $shipment;
+    }
+
+    public function markFailed(
+        string $shipmentId,
+        \DateTimeImmutable $occurredAt,
+        ?string $reason = null,
+    ): Shipment {
+        $shipment = $this->findOrFail($shipmentId);
+
+        if (! $shipment->status()->canTransitionTo(ShipmentStatus::DeliveryFailed)) {
+            throw InvalidShipmentStateException::cannotMarkFailed($shipment);
+        }
+
+        $shipment->transitionTo(
+            ShipmentStatus::DeliveryFailed,
+            $occurredAt,
+            $reason ?? 'marked_failed',
+        );
+
+        $this->shipments->save($shipment);
+
+        return $shipment;
+    }
+
     private function findOrFail(string $shipmentId): Shipment
     {
         $shipment = $this->shipments->findById($shipmentId);

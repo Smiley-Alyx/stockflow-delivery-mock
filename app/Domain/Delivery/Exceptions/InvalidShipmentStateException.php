@@ -30,4 +30,22 @@ final class InvalidShipmentStateException extends \DomainException
     {
         return new self(sprintf('Shipment %s already exists.', $shipmentId));
     }
+
+    public static function cannotMarkDelivered(Shipment $shipment): self
+    {
+        return new self(sprintf(
+            'Shipment %s in status %s cannot be marked as delivered.',
+            $shipment->shipmentId(),
+            $shipment->status()->value,
+        ));
+    }
+
+    public static function cannotMarkFailed(Shipment $shipment): self
+    {
+        return new self(sprintf(
+            'Shipment %s in status %s cannot be marked as failed.',
+            $shipment->shipmentId(),
+            $shipment->status()->value,
+        ));
+    }
 }

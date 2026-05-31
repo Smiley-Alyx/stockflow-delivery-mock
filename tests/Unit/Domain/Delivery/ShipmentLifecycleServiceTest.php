@@ -107,6 +107,40 @@ test('cancel rejects shipment already in transit', function (): void {
     $this->service->cancel('shp_test_001', $occurredAt);
 })->throws(InvalidShipmentStateException::class, 'Shipment shp_test_001 in status in_transit cannot be cancelled.');
 
+test('mark delivered moves shipment from out for delivery', function (): void {
+    $this->service->create(DeliveryTestFixtures::createShipmentCommand());
+
+    $occurredAt = new DateTimeImmutable('2026-05-31T10:05:00+00:00');
+
+    foreach (range(1, 4) as $step) {
+        $this->service->advanceStatus('shp_test_001', $occurredAt->modify("+{$step} minutes"));
+    }
+
+    $delivered = $this->service->markDelivered('shp_test_001', $occurredAt->modify('+10 minutes'));
+
+    expect($delivered->status())->toBe(ShipmentStatus::Delivered);
+});
+
+test('mark failed moves shipment from in transit', function (): void {
+    $this->service->create(DeliveryTestFixtures::createShipmentCommand());
+
+    $occurredAt = new DateTimeImmutable('2026-05-31T10:05:00+00:00');
+
+    foreach (range(1, 3) as $step) {
+        $this->service->advanceStatus('shp_test_001', $occurredAt->modify("+{$step} minutes"));
+    }
+
+    $failed = $this->service->markFailed('shp_test_001', $occurredAt->modify('+10 minutes'));
+
+    expect($failed->status())->toBe(ShipmentStatus::DeliveryFailed);
+});
+
+test('mark delivered rejects invalid status', function (): void {
+    $this->service->create(DeliveryTestFixtures::createShipmentCommand());
+
+    $this->service->markDelivered('shp_test_001', new DateTimeImmutable('2026-05-31T10:05:00+00:00'));
+})->throws(InvalidShipmentStateException::class, 'Shipment shp_test_001 in status created cannot be marked as delivered.');
+
 test('get throws when shipment does not exist', function (): void {
     $this->service->get('shp_missing');
 })->throws(ShipmentNotFoundException::class, 'Shipment shp_missing was not found.');
