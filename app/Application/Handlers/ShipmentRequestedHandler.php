@@ -18,6 +18,7 @@ use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\IncomingMessage;
 use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
+use App\Infrastructure\Observability\DeliveryMetricsRecorder;
 use App\Support\DeliveryStructuredLogger;
 
 final class ShipmentRequestedHandler
@@ -29,21 +30,23 @@ final class ShipmentRequestedHandler
         private readonly ShipmentIdempotencyService $idempotency,
         private readonly DeliveryDegradationSimulator $degradationSimulator,
         private readonly PublishedEventStore $publishedEventStore,
+        private readonly DeliveryMetricsRecorder $metricsRecorder,
     ) {
     }
 
     public function handle(IncomingMessage $message): void
     {
+        $startedAt = hrtime(true);
         $command = $this->mapper->toCreateShipmentCommand($message);
         $shipmentId = $command->shipmentId ?? throw new InvalidShipmentStateException('shipment_id is required');
 
-        DeliveryStructuredLogger::info('delivery shipment requested', [
-            'event' => 'delivery.shipment.requested.v1',
+        DeliveryStructuredLogger::info('delivery shipment requested', DeliveryStructuredLogger::context('delivery.shipment.requested', [
             'correlation_id' => $message->headers->correlationId,
             'shipment_id' => $shipmentId,
             'order_id' => $command->orderId,
             'idempotency_key' => $message->headers->idempotencyKey,
-        ]);
+            'routing_key' => $message->routingKey,
+        ]));
 
         $this->degradationSimulator->beforeProcessing(DeliveryOperation::ShipmentCreate);
 
@@ -51,6 +54,7 @@ final class ShipmentRequestedHandler
 
         if ($existing !== null) {
             $this->replayExistingCreate($message, $command, $existing);
+            $this->recordProcessed($message, 'idempotent_replay', $startedAt, true);
 
             return;
         }
@@ -59,6 +63,7 @@ final class ShipmentRequestedHandler
 
         if ($creationFailure !== null) {
             $this->handleCreationFailure($message, $command, $creationFailure['code'], $creationFailure['message']);
+            $this->recordProcessed($message, 'creation_failed', $startedAt);
 
             return;
         }
@@ -87,6 +92,8 @@ final class ShipmentRequestedHandler
             $previousStatus,
             'label_generated',
         );
+
+        $this->recordProcessed($message, 'created', $startedAt);
     }
 
     private function replayExistingCreate(
@@ -156,6 +163,21 @@ final class ShipmentRequestedHandler
             $shipment,
             ShipmentStatus::Created,
             'label_generated',
+        );
+    }
+
+    private function recordProcessed(
+        IncomingMessage $message,
+        string $outcome,
+        int $startedAt,
+        bool $idempotentReplay = false,
+    ): void {
+        $this->metricsRecorder->recordRequestProcessed(
+            operation: 'shipment_create',
+            routingKey: $message->routingKey,
+            outcome: $outcome,
+            durationSeconds: (hrtime(true) - $startedAt) / 1_000_000_000,
+            idempotentReplay: $idempotentReplay,
         );
     }
 }

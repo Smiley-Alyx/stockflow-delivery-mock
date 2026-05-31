@@ -16,8 +16,10 @@ use App\Infrastructure\Messaging\RabbitMq\NullDeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
 use App\Infrastructure\Persistence\InMemoryIdempotencyRecordRepository;
 use App\Infrastructure\Persistence\InMemoryPublishedEventRecordRepository;
+use App\Infrastructure\Observability\DeliveryMetricsRecorder;
 use Tests\Support\Debug\TestFailureModeSupport;
 use Tests\Support\Messaging\RecordingRabbitMqMessagePublisher;
+use Tests\Support\Observability\TestMetricsSupport;
 use App\Infrastructure\Persistence\InMemoryShipmentRepository;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryDlqPublisher;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestFailureHandler;
@@ -41,6 +43,7 @@ final class DeliveryRequestConsumerTest extends TestCase
         $idempotency = new ShipmentIdempotencyService(new InMemoryIdempotencyRecordRepository());
         $publishedEventStore = new PublishedEventStore(new InMemoryPublishedEventRecordRepository());
         $degradationSimulator = TestFailureModeSupport::simulator();
+        $metricsRecorder = TestMetricsSupport::recorder();
         $config = $this->config();
         $dispatcher = new ShipmentMessageDispatcher(
             new ShipmentRequestedHandler(
@@ -50,6 +53,7 @@ final class DeliveryRequestConsumerTest extends TestCase
                 $idempotency,
                 $degradationSimulator,
                 $publishedEventStore,
+                $metricsRecorder,
             ),
             new ShipmentCancelRequestedHandler(
                 $mapper,
@@ -58,6 +62,7 @@ final class DeliveryRequestConsumerTest extends TestCase
                 $idempotency,
                 $publishedEventStore,
                 $degradationSimulator,
+                $metricsRecorder,
             ),
         );
 
@@ -71,8 +76,9 @@ final class DeliveryRequestConsumerTest extends TestCase
                 new MessageRetryPolicy($config),
                 new DeliveryRequestRetryPublisher($config),
                 new DeliveryDlqPublisher($config),
+                $metricsRecorder,
             ),
-            new DeliveryRetryRequeueHandler($config),
+            new DeliveryRetryRequeueHandler($config, $metricsRecorder),
             new RecordingRabbitMqMessagePublisher(),
         );
 

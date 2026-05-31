@@ -6,6 +6,7 @@ namespace App\Infrastructure\Messaging\RabbitMq;
 
 use App\Application\Handlers\ShipmentMessageDispatcher;
 use App\Infrastructure\Messaging\RabbitMq\Exceptions\InvalidMessageException;
+use App\Support\DeliveryLogContext;
 use App\Support\DeliveryStructuredLogger;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Message\AMQPMessage;
@@ -103,11 +104,14 @@ final class DeliveryRequestConsumer
         try {
             $incoming = IncomingMessage::fromAmqpMessage($message, $this->headerValidator);
 
-            DeliveryStructuredLogger::info('delivery message received', [
-                'routing_key' => $incoming->routingKey,
+            DeliveryLogContext::bind([
                 'correlation_id' => $incoming->headers->correlationId,
                 'message_id' => $incoming->headers->messageId,
             ]);
+
+            DeliveryStructuredLogger::info('delivery message received', DeliveryStructuredLogger::context('delivery.message.received', [
+                'routing_key' => $incoming->routingKey,
+            ]));
 
             $this->dispatcher->dispatch($incoming);
 
@@ -116,6 +120,8 @@ final class DeliveryRequestConsumer
             $this->failureHandler->handleInvalidMessage($channel, $message, $exception);
         } catch (Throwable $exception) {
             $this->failureHandler->handleProcessingFailure($channel, $message, $exception);
+        } finally {
+            DeliveryLogContext::clear();
         }
     }
 

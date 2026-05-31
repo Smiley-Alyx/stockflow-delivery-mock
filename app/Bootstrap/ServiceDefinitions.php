@@ -19,7 +19,10 @@ use App\Domain\Delivery\Services\Idempotency\ShipmentIdempotencyService;
 use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Http\Controllers\DebugController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\ShipmentController;
+use App\Infrastructure\Observability\DeliveryMetricsRecorder;
+use App\Infrastructure\Observability\Prometheus\PrometheusRegistry;
 use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryDlqPublisher;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestConsumer;
@@ -96,6 +99,25 @@ final class ServiceDefinitions
                     $config['degradation']['processing_delay_ms'],
                 );
             },
+            PrometheusRegistry::class => static function (): PrometheusRegistry {
+                static $instance = null;
+
+                return $instance ??= new PrometheusRegistry();
+            },
+            DeliveryMetricsRecorder::class => static fn ($container): DeliveryMetricsRecorder => new DeliveryMetricsRecorder(
+                $container->get(PrometheusRegistry::class),
+                $container->get(FailureModeManager::class),
+            ),
+            MetricsController::class => static function ($container): MetricsController {
+                /** @var array{observability: array{metrics_enabled: bool|string}} $config */
+                $config = $container->get('config');
+
+                return new MetricsController(
+                    $container->get(PrometheusRegistry::class),
+                    $container->get(DeliveryMetricsRecorder::class),
+                    filter_var($config['observability']['metrics_enabled'], FILTER_VALIDATE_BOOL),
+                );
+            },
             HealthController::class => static function ($container): HealthController {
                 /** @var array{service_name: string} $config */
                 $config = $container->get('config');
@@ -152,11 +174,13 @@ final class ServiceDefinitions
             ),
             DeliveryRetryRequeueHandler::class => static fn ($container): DeliveryRetryRequeueHandler => new DeliveryRetryRequeueHandler(
                 $container->get(RabbitMqConfig::class),
+                $container->get(DeliveryMetricsRecorder::class),
             ),
             DeliveryRequestFailureHandler::class => static fn ($container): DeliveryRequestFailureHandler => new DeliveryRequestFailureHandler(
                 $container->get(MessageRetryPolicy::class),
                 $container->get(DeliveryRequestRetryPublisher::class),
                 $container->get(DeliveryDlqPublisher::class),
+                $container->get(DeliveryMetricsRecorder::class),
             ),
             OutgoingMessageHeadersFactory::class => static function ($container): OutgoingMessageHeadersFactory {
                 /** @var array{service_name: string} $config */
@@ -172,6 +196,7 @@ final class ServiceDefinitions
                 $container->get(RabbitMqMessagePublisher::class),
                 $container->get(PublishedEventStore::class),
                 $container->get(DeliveryDegradationSimulator::class),
+                $container->get(DeliveryMetricsRecorder::class),
             ),
             DeliveryEventPublisher::class => static function ($container): DeliveryEventPublisher {
                 /** @var array{rabbitmq: array{publish_events: bool|string}} $config */
@@ -192,6 +217,7 @@ final class ServiceDefinitions
                 $container->get(ShipmentIdempotencyService::class),
                 $container->get(DeliveryDegradationSimulator::class),
                 $container->get(PublishedEventStore::class),
+                $container->get(DeliveryMetricsRecorder::class),
             ),
             ShipmentCancelRequestedHandler::class => static fn ($container): ShipmentCancelRequestedHandler => new ShipmentCancelRequestedHandler(
                 $container->get(ShipmentMessageMapper::class),
@@ -200,6 +226,7 @@ final class ServiceDefinitions
                 $container->get(ShipmentIdempotencyService::class),
                 $container->get(PublishedEventStore::class),
                 $container->get(DeliveryDegradationSimulator::class),
+                $container->get(DeliveryMetricsRecorder::class),
             ),
             ShipmentMessageDispatcher::class => static fn ($container): ShipmentMessageDispatcher => new ShipmentMessageDispatcher(
                 $container->get(ShipmentRequestedHandler::class),

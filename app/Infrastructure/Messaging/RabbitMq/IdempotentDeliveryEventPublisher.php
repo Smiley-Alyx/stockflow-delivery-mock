@@ -12,6 +12,7 @@ use App\Domain\Delivery\Models\PublishedEventRecord;
 use App\Domain\Delivery\Models\Shipment;
 use App\Domain\Delivery\Services\Debug\DeliveryDegradationSimulator;
 use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
+use App\Infrastructure\Observability\DeliveryMetricsRecorder;
 use App\Infrastructure\Messaging\RabbitMq\Exceptions\PublishedEventConflictException;
 use App\Support\DeliveryStructuredLogger;
 
@@ -22,6 +23,7 @@ final class IdempotentDeliveryEventPublisher implements DeliveryEventPublisher
         private readonly RabbitMqMessagePublisher $messagePublisher,
         private readonly PublishedEventStore $publishedEventStore,
         private readonly DeliveryDegradationSimulator $degradationSimulator,
+        private readonly DeliveryMetricsRecorder $metricsRecorder,
     ) {
     }
 
@@ -176,24 +178,33 @@ final class IdempotentDeliveryEventPublisher implements DeliveryEventPublisher
     {
         $this->degradationSimulator->assertPublishAllowed();
         $this->messagePublisher->publish($event);
+        $this->metricsRecorder->recordEventPublished(
+            routingKey: $event->routingKey,
+            idempotentReplay: $storedReplay,
+        );
 
-        DeliveryStructuredLogger::info('delivery event published', [
+        DeliveryStructuredLogger::info('delivery event published', DeliveryStructuredLogger::context('delivery.event.published', [
             'routing_key' => $event->routingKey,
             'correlation_id' => $event->headers->correlationId,
             'causation_id' => $event->headers->causationId,
             'message_id' => $event->headers->messageId,
             'idempotency_key' => $event->headers->idempotencyKey,
             'idempotent_event_replay' => $storedReplay,
-        ]);
+        ]));
 
         if (! $storedReplay && $this->degradationSimulator->shouldDuplicatePublishedResponse()) {
             $this->messagePublisher->publish($event);
+            $this->metricsRecorder->recordEventPublished(
+                routingKey: $event->routingKey,
+                idempotentReplay: false,
+                duplicate: true,
+            );
 
-            DeliveryStructuredLogger::info('delivery event duplicate published', [
+            DeliveryStructuredLogger::info('delivery event duplicate published', DeliveryStructuredLogger::context('delivery.event.duplicate_published', [
                 'routing_key' => $event->routingKey,
                 'message_id' => $event->headers->messageId,
                 'idempotency_key' => $event->headers->idempotencyKey,
-            ]);
+            ]));
         }
     }
 

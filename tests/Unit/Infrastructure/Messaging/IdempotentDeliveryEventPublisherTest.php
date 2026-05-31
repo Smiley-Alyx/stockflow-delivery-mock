@@ -16,6 +16,7 @@ use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
 use App\Infrastructure\Persistence\InMemoryPublishedEventRecordRepository;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\Debug\TestFailureModeSupport;
+use Tests\Support\Observability\TestMetricsSupport;
 use Tests\Support\DeliveryTestFixtures;
 use Tests\Support\Messaging\RecordingRabbitMqMessagePublisher;
 
@@ -105,6 +106,7 @@ final class IdempotentDeliveryEventPublisherTest extends TestCase
             $recording,
             new PublishedEventStore($repository),
             TestFailureModeSupport::simulator($manager),
+            TestMetricsSupport::recorder(),
         );
 
         $publisher->publishShipmentCreated($this->incoming(), DeliveryTestFixtures::lifecycleService()->create(DeliveryTestFixtures::createShipmentCommand()));
@@ -122,6 +124,7 @@ final class IdempotentDeliveryEventPublisherTest extends TestCase
             $recording,
             new PublishedEventStore($repository),
             TestFailureModeSupport::simulator(),
+            TestMetricsSupport::recorder(),
         );
     }
 

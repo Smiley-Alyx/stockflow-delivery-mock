@@ -14,6 +14,7 @@ use PhpAmqpLib\Wire\AMQPTable;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Tests\Support\Messaging\RabbitMqTestConfig;
+use Tests\Support\Observability\TestMetricsSupport;
 use Tests\Support\Messaging\RecordingDeliveryDlqPublisher;
 use Tests\Support\Messaging\RecordingDeliveryRequestRetryPublisher;
 
@@ -31,6 +32,7 @@ final class DeliveryRequestFailureHandlerTest extends TestCase
             new MessageRetryPolicy(RabbitMqTestConfig::make(maxRetryAttempts: 3)),
             $retryPublisher,
             $dlqPublisher,
+            TestMetricsSupport::recorder(),
         );
 
         $message = new AMQPMessage('{}');
@@ -55,6 +57,7 @@ final class DeliveryRequestFailureHandlerTest extends TestCase
             new MessageRetryPolicy(RabbitMqTestConfig::make(maxRetryAttempts: 3)),
             $retryPublisher,
             $dlqPublisher,
+            TestMetricsSupport::recorder(),
         );
 
         $message = new AMQPMessage('{}');
@@ -82,6 +85,7 @@ final class DeliveryRequestFailureHandlerTest extends TestCase
             new MessageRetryPolicy(RabbitMqTestConfig::make(maxRetryAttempts: 3)),
             $retryPublisher,
             $dlqPublisher,
+            TestMetricsSupport::recorder(),
         );
 
         $message = new AMQPMessage('{}', [
@@ -106,6 +110,7 @@ final class DeliveryRequestFailureHandlerTest extends TestCase
             new MessageRetryPolicy(RabbitMqTestConfig::make(maxRetryAttempts: 3)),
             new RecordingDeliveryRequestRetryPublisher(),
             new RecordingDeliveryDlqPublisher(),
+            TestMetricsSupport::recorder(),
         );
 
         $message = new AMQPMessage('{}');

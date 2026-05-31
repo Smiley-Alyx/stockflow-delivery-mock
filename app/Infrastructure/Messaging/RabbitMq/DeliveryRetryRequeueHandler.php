@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Messaging\RabbitMq;
 
+use App\Infrastructure\Observability\DeliveryMetricsRecorder;
 use App\Support\DeliveryStructuredLogger;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Message\AMQPMessage;
@@ -12,6 +13,7 @@ final class DeliveryRetryRequeueHandler
 {
     public function __construct(
         private readonly RabbitMqConfig $config,
+        private readonly DeliveryMetricsRecorder $metricsRecorder,
     ) {
     }
 
@@ -42,10 +44,12 @@ final class DeliveryRetryRequeueHandler
             $metadata->originalRoutingKey,
         );
 
-        DeliveryStructuredLogger::info('delivery request requeued from retry queue', [
+        $this->metricsRecorder->recordRetryRequeued($metadata->originalRoutingKey);
+
+        DeliveryStructuredLogger::info('delivery request requeued from retry queue', DeliveryStructuredLogger::context('delivery.request.retry_requeued', [
             'routing_key' => $metadata->originalRoutingKey,
             'retry_count' => $metadata->retryCount,
-        ]);
+        ]));
 
         $channel->basic_ack($deliveryTag);
     }

@@ -15,10 +15,12 @@ use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\IdempotentDeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\OutgoingMessageHeadersFactory;
 use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
+use App\Infrastructure\Observability\DeliveryMetricsRecorder;
 use App\Infrastructure\Persistence\InMemoryIdempotencyRecordRepository;
 use App\Infrastructure\Persistence\InMemoryPublishedEventRecordRepository;
 use App\Infrastructure\Persistence\InMemoryShipmentRepository;
 use Tests\Support\Debug\TestFailureModeSupport;
+use Tests\Support\Observability\TestMetricsSupport;
 
 final class IdempotentShipmentMessageDispatcherFactory
 {
@@ -29,12 +31,14 @@ final class IdempotentShipmentMessageDispatcherFactory
      *     2: RecordingRabbitMqMessagePublisher,
      *     3: InMemoryIdempotencyRecordRepository,
      *     4: InMemoryPublishedEventRecordRepository,
-     *     5: DeliveryDegradationSimulator
+     *     5: DeliveryDegradationSimulator,
+     *     6: DeliveryMetricsRecorder
      * }
      */
     public static function create(
         ?InMemoryShipmentRepository $repository = null,
         ?DeliveryDegradationSimulator $degradationSimulator = null,
+        ?DeliveryMetricsRecorder $metricsRecorder = null,
     ): array {
         TestFailureModeSupport::resetStateFile();
 
@@ -47,11 +51,13 @@ final class IdempotentShipmentMessageDispatcherFactory
         $idempotency = new ShipmentIdempotencyService($idempotencyRecords);
         $publishedEventStore = new PublishedEventStore($publishedEventRecords);
         $degradationSimulator ??= TestFailureModeSupport::simulator();
+        $metricsRecorder ??= TestMetricsSupport::recorder();
         $eventPublisher = new IdempotentDeliveryEventPublisher(
             new ShipmentEventPayloadMapper(new OutgoingMessageHeadersFactory('stockflow-delivery-mock')),
             $recordingPublisher,
             $publishedEventStore,
             $degradationSimulator,
+            $metricsRecorder,
         );
 
         $dispatcher = new ShipmentMessageDispatcher(
@@ -62,6 +68,7 @@ final class IdempotentShipmentMessageDispatcherFactory
                 $idempotency,
                 $degradationSimulator,
                 $publishedEventStore,
+                $metricsRecorder,
             ),
             new ShipmentCancelRequestedHandler(
                 $mapper,
@@ -70,6 +77,7 @@ final class IdempotentShipmentMessageDispatcherFactory
                 $idempotency,
                 $publishedEventStore,
                 $degradationSimulator,
+                $metricsRecorder,
             ),
         );
 
@@ -80,6 +88,7 @@ final class IdempotentShipmentMessageDispatcherFactory
             $idempotencyRecords,
             $publishedEventRecords,
             $degradationSimulator,
+            $metricsRecorder,
         ];
     }
 }

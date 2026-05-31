@@ -6,6 +6,7 @@ namespace App\Bootstrap;
 
 use App\Http\Controllers\DebugController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\MetricsController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Middleware\DomainExceptionMiddleware;
 use DI\ContainerBuilder;
@@ -48,6 +49,7 @@ final class AppFactory
         $healthController = $container->get(HealthController::class);
         $shipmentController = $container->get(ShipmentController::class);
         $debugController = $container->get(DebugController::class);
+        $metricsController = $container->get(MetricsController::class);
 
         $app->get('/', [$healthController, 'index']);
         $app->get('/health', [$healthController, 'health']);
@@ -63,5 +65,6 @@ final class AppFactory
         $app->post('/debug/reset', [$debugController, 'reset']);
         $app->get('/debug/failure-mode', [$debugController, 'showFailureMode']);
         $app->post('/debug/failure-mode', [$debugController, 'setFailureMode']);
+        $app->get('/metrics', $metricsController);
     }
 }

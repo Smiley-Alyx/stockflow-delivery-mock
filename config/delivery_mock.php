@@ -11,6 +11,9 @@ return [
         'failure_mode_state_file' => getenv('DELIVERY_MOCK_FAILURE_MODE_STATE_FILE')
             ?: dirname(__DIR__) . '/var/state/failure-mode.json',
     ],
+    'observability' => [
+        'metrics_enabled' => filter_var(getenv('DELIVERY_MOCK_METRICS_ENABLED') ?: 'true', FILTER_VALIDATE_BOOL),
+    ],
     'rabbitmq' => [
         'host' => getenv('RABBITMQ_HOST') ?: '127.0.0.1',
         'port' => (int) (getenv('RABBITMQ_PORT') ?: 5672),

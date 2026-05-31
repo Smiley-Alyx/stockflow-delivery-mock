@@ -8,6 +8,17 @@ final class DeliveryStructuredLogger
 {
     /**
      * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    public static function context(string $event, array $context = []): array
+    {
+        return array_merge([
+            'event' => $event,
+        ], $context);
+    }
+
+    /**
+     * @param array<string, mixed> $context
      */
     public static function info(string $message, array $context = []): void
     {
@@ -39,7 +50,7 @@ final class DeliveryStructuredLogger
             'level' => $level,
             'message' => $message,
             'service' => getenv('DELIVERY_MOCK_SERVICE_NAME') ?: 'stockflow-delivery-mock',
-            'context' => $context,
+            'context' => array_merge(DeliveryLogContext::all(), $context),
             'timestamp' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ], JSON_THROW_ON_ERROR);
 

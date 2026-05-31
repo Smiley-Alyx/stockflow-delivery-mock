@@ -10,6 +10,7 @@ use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Wire\AMQPTable;
 use PHPUnit\Framework\TestCase;
 use Tests\Support\Messaging\RabbitMqTestConfig;
+use Tests\Support\Observability\TestMetricsSupport;
 
 final class DeliveryRetryRequeueHandlerTest extends TestCase
 {
@@ -25,7 +26,7 @@ final class DeliveryRetryRequeueHandlerTest extends TestCase
             );
         $channel->expects($this->once())->method('basic_ack')->with(5);
 
-        $handler = new DeliveryRetryRequeueHandler(RabbitMqTestConfig::make(retryDelayMs: 0));
+        $handler = new DeliveryRetryRequeueHandler(RabbitMqTestConfig::make(retryDelayMs: 0), TestMetricsSupport::recorder());
 
         $message = new AMQPMessage('{"shipment_id":"shp_1"}', [
             'application_headers' => new AMQPTable([
@@ -44,7 +45,7 @@ final class DeliveryRetryRequeueHandlerTest extends TestCase
         $channel->expects($this->once())->method('basic_nack')->with(8, false, true);
         $channel->expects($this->never())->method('basic_publish');
 
-        $handler = new DeliveryRetryRequeueHandler(RabbitMqTestConfig::make(retryDelayMs: 5000));
+        $handler = new DeliveryRetryRequeueHandler(RabbitMqTestConfig::make(retryDelayMs: 5000), TestMetricsSupport::recorder());
 
         $message = new AMQPMessage('{}', [
             'application_headers' => new AMQPTable([
@@ -64,7 +65,7 @@ final class DeliveryRetryRequeueHandlerTest extends TestCase
         $channel->expects($this->once())->method('basic_reject')->with(12, false);
         $channel->expects($this->never())->method('basic_publish');
 
-        $handler = new DeliveryRetryRequeueHandler(RabbitMqTestConfig::make());
+        $handler = new DeliveryRetryRequeueHandler(RabbitMqTestConfig::make(), TestMetricsSupport::recorder());
 
         $message = new AMQPMessage('{}', [
             'application_headers' => new AMQPTable([

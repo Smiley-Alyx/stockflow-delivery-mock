@@ -16,6 +16,7 @@ use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\IncomingMessage;
 use App\Infrastructure\Messaging\RabbitMq\PublishedEventStore;
+use App\Infrastructure\Observability\DeliveryMetricsRecorder;
 use App\Support\DeliveryStructuredLogger;
 
 final class ShipmentCancelRequestedHandler
@@ -27,25 +28,28 @@ final class ShipmentCancelRequestedHandler
         private readonly ShipmentIdempotencyService $idempotency,
         private readonly PublishedEventStore $publishedEventStore,
         private readonly DeliveryDegradationSimulator $degradationSimulator,
+        private readonly DeliveryMetricsRecorder $metricsRecorder,
     ) {
     }
 
     public function handle(IncomingMessage $message): void
     {
+        $startedAt = hrtime(true);
         $command = $this->mapper->toCancelShipmentCommand($message);
 
-        DeliveryStructuredLogger::info('delivery shipment cancel requested', [
-            'event' => 'delivery.shipment.cancel_requested.v1',
+        DeliveryStructuredLogger::info('delivery shipment cancel requested', DeliveryStructuredLogger::context('delivery.shipment.cancel_requested', [
             'correlation_id' => $command->correlationId,
             'shipment_id' => $command->shipmentId,
             'order_id' => $command->orderId,
             'idempotency_key' => $command->idempotencyKey,
-        ]);
+            'routing_key' => $message->routingKey,
+        ]));
 
         $existing = $this->idempotency->findCancelRecord($command->shipmentId, $command->idempotencyKey);
 
         if ($existing !== null) {
             $this->replayCancelEvents($message, $command);
+            $this->recordProcessed($message, 'idempotent_replay', $startedAt, true);
 
             return;
         }
@@ -61,6 +65,7 @@ final class ShipmentCancelRequestedHandler
                 $simulatedCancelFailure['code'],
                 $simulatedCancelFailure['message'],
             );
+            $this->recordProcessed($message, 'cancel_failed', $startedAt);
 
             return;
         }
@@ -88,6 +93,7 @@ final class ShipmentCancelRequestedHandler
                 'shipment_not_found',
                 $exception->getMessage(),
             );
+            $this->recordProcessed($message, 'cancel_failed', $startedAt);
 
             return;
         } catch (InvalidShipmentStateException $exception) {
@@ -111,6 +117,7 @@ final class ShipmentCancelRequestedHandler
                 $exception->getMessage(),
                 $currentStatus,
             );
+            $this->recordProcessed($message, 'cancel_failed', $startedAt);
 
             return;
         }
@@ -122,6 +129,7 @@ final class ShipmentCancelRequestedHandler
         );
 
         $this->eventPublisher->publishShipmentCancelled($message, $shipment);
+        $this->recordProcessed($message, 'cancelled', $startedAt);
     }
 
     private function handleSimulatedCancelFailure(
@@ -208,5 +216,20 @@ final class ShipmentCancelRequestedHandler
             ShipmentStatus::Cancelled => 'shipment_already_cancelled',
             default => 'delivery_failed',
         };
+    }
+
+    private function recordProcessed(
+        IncomingMessage $message,
+        string $outcome,
+        int $startedAt,
+        bool $idempotentReplay = false,
+    ): void {
+        $this->metricsRecorder->recordRequestProcessed(
+            operation: 'shipment_cancel',
+            routingKey: $message->routingKey,
+            outcome: $outcome,
+            durationSeconds: (hrtime(true) - $startedAt) / 1_000_000_000,
+            idempotentReplay: $idempotentReplay,
+        );
     }
 }
