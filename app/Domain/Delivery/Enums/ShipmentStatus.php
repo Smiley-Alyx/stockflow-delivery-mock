@@ -36,6 +36,18 @@ enum ShipmentStatus: string
         return in_array($next, $this->allowedTransitions(), true);
     }
 
+    public function nextDefaultStatus(): ?self
+    {
+        return match ($this) {
+            self::Created => self::LabelGenerated,
+            self::LabelGenerated => self::PickedUp,
+            self::PickedUp => self::InTransit,
+            self::InTransit => self::OutForDelivery,
+            self::OutForDelivery => self::Delivered,
+            default => null,
+        };
+    }
+
     /**
      * @return list<self>
      */

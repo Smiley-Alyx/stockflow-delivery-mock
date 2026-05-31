@@ -43,3 +43,13 @@ test('disallowed status transitions', function (ShipmentStatus $from, ShipmentSt
 test('status can transition to itself', function (): void {
     expect(ShipmentStatus::InTransit->canTransitionTo(ShipmentStatus::InTransit))->toBeTrue();
 });
+
+test('next default status follows happy path progression', function (): void {
+    expect(ShipmentStatus::Created->nextDefaultStatus())->toBe(ShipmentStatus::LabelGenerated)
+        ->and(ShipmentStatus::LabelGenerated->nextDefaultStatus())->toBe(ShipmentStatus::PickedUp)
+        ->and(ShipmentStatus::PickedUp->nextDefaultStatus())->toBe(ShipmentStatus::InTransit)
+        ->and(ShipmentStatus::InTransit->nextDefaultStatus())->toBe(ShipmentStatus::OutForDelivery)
+        ->and(ShipmentStatus::OutForDelivery->nextDefaultStatus())->toBe(ShipmentStatus::Delivered)
+        ->and(ShipmentStatus::Delivered->nextDefaultStatus())->toBeNull()
+        ->and(ShipmentStatus::DeliveryFailed->nextDefaultStatus())->toBeNull();
+});
