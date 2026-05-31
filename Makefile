@@ -1,4 +1,4 @@
-.PHONY: docker-down docker-up install serve test
+.PHONY: consume docker-down docker-up install serve test
 
 install:
 	composer install
@@ -6,6 +6,9 @@ install:
 
 serve:
 	php -S 0.0.0.0:8082 -t public public/index.php
+
+consume:
+	php bin/consume-requests.php
 
 test:
 	./vendor/bin/pest

@@ -4,14 +4,10 @@ declare(strict_types=1);
 
 namespace App\Bootstrap;
 
-use App\Domain\Delivery\Repositories\ShipmentRepository;
-use App\Domain\Delivery\Services\DemoResetService;
-use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Http\Controllers\DebugController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ShipmentController;
 use App\Http\Middleware\DomainExceptionMiddleware;
-use App\Infrastructure\Persistence\InMemoryShipmentRepository;
 use DI\ContainerBuilder;
 use Psr\Container\ContainerInterface;
 use Slim\App;
@@ -42,45 +38,9 @@ final class AppFactory
     public static function buildContainer(): ContainerInterface
     {
         $containerBuilder = new ContainerBuilder();
-        $containerBuilder->addDefinitions(self::definitions());
+        $containerBuilder->addDefinitions(ServiceDefinitions::all());
 
         return $containerBuilder->build();
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private static function definitions(): array
-    {
-        return [
-            'config' => static fn (): array => require dirname(__DIR__, 2) . '/config/delivery_mock.php',
-            InMemoryShipmentRepository::class => static fn (): InMemoryShipmentRepository => new InMemoryShipmentRepository(),
-            ShipmentRepository::class => static fn ($container): ShipmentRepository => $container->get(InMemoryShipmentRepository::class),
-            ShipmentLifecycleService::class => static fn ($container): ShipmentLifecycleService => new ShipmentLifecycleService(
-                $container->get(ShipmentRepository::class),
-            ),
-            DemoResetService::class => static fn ($container): DemoResetService => new DemoResetService(
-                $container->get(ShipmentRepository::class),
-            ),
-            HealthController::class => static function ($container): HealthController {
-                /** @var array{service_name: string} $config */
-                $config = $container->get('config');
-
-                return new HealthController($config['service_name']);
-            },
-            ShipmentController::class => static fn ($container): ShipmentController => new ShipmentController(
-                $container->get(ShipmentLifecycleService::class),
-            ),
-            DebugController::class => static function ($container): DebugController {
-                /** @var array{debug_enabled: bool} $config */
-                $config = $container->get('config');
-
-                return new DebugController(
-                    $container->get(DemoResetService::class),
-                    $config['debug_enabled'],
-                );
-            },
-        ];
     }
 
     private static function registerRoutes(App $app, ContainerInterface $container): void

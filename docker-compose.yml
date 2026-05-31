@@ -2,20 +2,38 @@ services:
   delivery-mock:
     build:
       context: .
-    environment:
+    environment: &delivery-mock-env
       DELIVERY_MOCK_SERVICE_NAME: stockflow-delivery-mock
       DELIVERY_MOCK_HTTP_PORT: 8080
       DELIVERY_MOCK_DEBUG_ENABLED: "true"
+      DELIVERY_MOCK_PUBLISH_EVENTS: "true"
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_PORT: 5672
       RABBITMQ_USER: stockflow
       RABBITMQ_PASSWORD: stockflow
       RABBITMQ_VHOST: /
+      RABBITMQ_EXCHANGE: stockflow.delivery
+      RABBITMQ_DLX: stockflow.delivery.dlx
+      RABBITMQ_REQUESTS_QUEUE: stockflow.delivery.requests
+      RABBITMQ_RETRY_QUEUE: stockflow.delivery.requests.retry
+      RABBITMQ_DLQ: stockflow.delivery.requests.dlq
+      RABBITMQ_SETUP_TOPOLOGY: "true"
     ports:
       - "8082:8080"
     depends_on:
       rabbitmq:
         condition: service_healthy
+
+  delivery-mock-worker:
+    build:
+      context: .
+    command: ["php", "bin/consume-requests.php"]
+    environment: *delivery-mock-env
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      delivery-mock:
+        condition: service_started
 
   rabbitmq:
     image: rabbitmq:4.1-management-alpine

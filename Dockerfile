@@ -22,7 +22,8 @@ COPY --from=vendor /app/vendor ./vendor
 COPY . .
 
 RUN composer dump-autoload --optimize \
-    && chmod +x docker/entrypoint.sh
+    && chmod +x docker/entrypoint.sh \
+    && chmod +x bin/consume-requests.php
 
 EXPOSE 8080
 

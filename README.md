@@ -62,6 +62,14 @@ Stop the containers:
 make docker-down
 ```
 
+Run the RabbitMQ consumer locally:
+
+```bash
+make consume
+```
+
+Docker Compose starts a separate worker container that runs `bin/consume-requests.php`.
+
 ## HTTP endpoints
 
 | Method | Path | Description |
@@ -91,6 +99,31 @@ Additional debug, metrics, and messaging endpoints will be added in later steps.
 | `RABBITMQ_USER` | `stockflow` | RabbitMQ username |
 | `RABBITMQ_PASSWORD` | `stockflow` | RabbitMQ password |
 | `RABBITMQ_VHOST` | `/` | RabbitMQ virtual host |
+| `RABBITMQ_EXCHANGE` | `stockflow.delivery` | Topic exchange for delivery messages |
+| `RABBITMQ_DLX` | `stockflow.delivery.dlx` | Dead-letter exchange |
+| `RABBITMQ_REQUESTS_QUEUE` | `stockflow.delivery.requests` | Incoming request queue |
+| `RABBITMQ_RETRY_QUEUE` | `stockflow.delivery.requests.retry` | Retry queue |
+| `RABBITMQ_DLQ` | `stockflow.delivery.requests.dlq` | Dead-letter queue |
+| `RABBITMQ_SETUP_TOPOLOGY` | `true` | Declare exchange/queues on startup |
+| `RABBITMQ_PREFETCH_COUNT` | `1` | Consumer prefetch |
+| `RABBITMQ_CONSUMER_TIMEOUT_SECONDS` | `30` | `wait()` timeout for graceful shutdown |
+| `DELIVERY_MOCK_PUBLISH_EVENTS` | `true` | Enable outbound event publishing (step 7) |
+
+## RabbitMQ consumer
+
+The delivery mock consumes:
+
+| Routing key | Handler |
+| --- | --- |
+| `delivery.shipment.requested.v1` | Create shipment in provider state |
+| `delivery.shipment.cancel_requested.v1` | Cancel shipment when allowed |
+
+The consumer validates contract headers, maps payloads to domain commands, and
+acks successful processing. Invalid messages and processing failures are nacked
+without requeue and routed to DLQ through queue dead-letter settings.
+
+Graceful shutdown is supported via `SIGTERM`/`SIGINT` when the `pcntl` extension
+is available.
 
 ## Tests
 
