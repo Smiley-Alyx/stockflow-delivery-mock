@@ -1,0 +1,23 @@
+# feat(scope): short imperative subject
+
+# Формат обязателен:
+#   type(scope): subject
+#
+# Примеры:
+#   feat(shipment-lifecycle): add create and cancel shipment service
+#   refactor(status-history): extract invalid transition handling
+#   test(rabbitmq): cover shipment request happy path over amqp
+#   docs(delivery-flow): describe shipment status progression sequence
+#   infra(observability): add prometheus metrics endpoint
+#   chore(bootstrap): initialize delivery mock service
+#
+# Разрешенные type:
+#   feat, fix, refactor, perf, test, docs, infra, build, ci, chore, revert
+#
+# Scope обязателен, kebab-case.
+# Subject начинается с маленькой буквы или цифры, без точки в конце.
+#
+# Приоритет инженерной зрелости:
+#   idempotent consumers, retry and DLQ policy, correlation headers,
+#   failure mode simulation, status history, metrics and tracing,
+#   AsyncAPI contracts, graceful shutdown, integration test evidence.

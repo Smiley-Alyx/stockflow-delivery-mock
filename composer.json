@@ -25,6 +25,13 @@
         }
     },
     "scripts": {
+        "setup": [
+            "composer install",
+            "@install-git-hooks"
+        ],
+        "install-git-hooks": [
+            "@php scripts/install-git-hooks.php"
+        ],
         "test": "pest",
         "serve": "php -S 0.0.0.0:8082 -t public public/index.php"
     },

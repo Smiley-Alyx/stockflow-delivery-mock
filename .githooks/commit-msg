@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+set -eu
+
+php scripts/validate-commit-message.php "$1"
