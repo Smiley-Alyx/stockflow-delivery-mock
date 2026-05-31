@@ -7,6 +7,7 @@ namespace App\Domain\Delivery\Models;
 use App\Domain\Delivery\Enums\ShipmentStatus;
 use App\Domain\Delivery\Exceptions\InvalidShipmentTransitionException;
 use App\Domain\Delivery\Support\PrefixedIdGenerator;
+use App\Domain\Delivery\Support\TrackingNumberGenerator;
 
 final class Shipment
 {
@@ -14,6 +15,7 @@ final class Shipment
     private function __construct(
         private readonly string $shipmentId,
         private readonly string $orderId,
+        private readonly string $trackingNumber,
         private ShipmentStatus $status,
         private readonly DeliveryAddress $deliveryAddress,
         private readonly CarrierProfile $carrierProfile,
@@ -31,6 +33,7 @@ final class Shipment
         ?string $shipmentId = null,
     ): self {
         $resolvedShipmentId = $shipmentId ?? PrefixedIdGenerator::generate('shp');
+        $trackingNumber = TrackingNumberGenerator::forShipment($resolvedShipmentId);
 
         $history = new ShipmentStatusHistory(
             historyId: PrefixedIdGenerator::generate('shh'),
@@ -44,6 +47,7 @@ final class Shipment
         return new self(
             shipmentId: $resolvedShipmentId,
             orderId: $orderId,
+            trackingNumber: $trackingNumber,
             status: ShipmentStatus::Created,
             deliveryAddress: $deliveryAddress,
             carrierProfile: $carrierProfile,
@@ -61,6 +65,11 @@ final class Shipment
     public function orderId(): string
     {
         return $this->orderId;
+    }
+
+    public function trackingNumber(): string
+    {
+        return $this->trackingNumber;
     }
 
     public function status(): ShipmentStatus

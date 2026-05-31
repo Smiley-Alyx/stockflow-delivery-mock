@@ -7,6 +7,7 @@ namespace App\Bootstrap;
 use App\Application\Handlers\ShipmentCancelRequestedHandler;
 use App\Application\Handlers\ShipmentMessageDispatcher;
 use App\Application\Handlers\ShipmentRequestedHandler;
+use App\Application\Mappers\ShipmentEventPayloadMapper;
 use App\Application\Mappers\ShipmentMessageMapper;
 use App\Domain\Delivery\Repositories\ShipmentRepository;
 use App\Domain\Delivery\Services\DemoResetService;
@@ -14,11 +15,16 @@ use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Http\Controllers\DebugController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ShipmentController;
+use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestConsumer;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestFailureHandler;
 use App\Infrastructure\Messaging\RabbitMq\MessageHeaderValidator;
+use App\Infrastructure\Messaging\RabbitMq\NullDeliveryEventPublisher;
+use App\Infrastructure\Messaging\RabbitMq\OutgoingMessageHeadersFactory;
 use App\Infrastructure\Messaging\RabbitMq\RabbitMqConfig;
 use App\Infrastructure\Messaging\RabbitMq\RabbitMqConnectionFactory;
+use App\Infrastructure\Messaging\RabbitMq\RabbitMqDeliveryEventPublisher;
+use App\Infrastructure\Messaging\RabbitMq\RabbitMqMessagePublisher;
 use App\Infrastructure\Messaging\RabbitMq\RabbitMqTopologyManager;
 use App\Infrastructure\Persistence\InMemoryShipmentRepository;
 
@@ -89,15 +95,45 @@ final class ServiceDefinitions
             RabbitMqTopologyManager::class => static fn ($container): RabbitMqTopologyManager => new RabbitMqTopologyManager(
                 $container->get(RabbitMqConfig::class),
             ),
+            RabbitMqMessagePublisher::class => static fn ($container): RabbitMqMessagePublisher => new RabbitMqMessagePublisher(
+                $container->get(RabbitMqConfig::class),
+                $container->get(RabbitMqConnectionFactory::class),
+            ),
             MessageHeaderValidator::class => static fn (): MessageHeaderValidator => new MessageHeaderValidator(),
+            OutgoingMessageHeadersFactory::class => static function ($container): OutgoingMessageHeadersFactory {
+                /** @var array{service_name: string} $config */
+                $config = $container->get('config');
+
+                return new OutgoingMessageHeadersFactory($config['service_name']);
+            },
+            ShipmentEventPayloadMapper::class => static fn ($container): ShipmentEventPayloadMapper => new ShipmentEventPayloadMapper(
+                $container->get(OutgoingMessageHeadersFactory::class),
+            ),
+            RabbitMqDeliveryEventPublisher::class => static fn ($container): RabbitMqDeliveryEventPublisher => new RabbitMqDeliveryEventPublisher(
+                $container->get(ShipmentEventPayloadMapper::class),
+                $container->get(RabbitMqMessagePublisher::class),
+            ),
+            DeliveryEventPublisher::class => static function ($container): DeliveryEventPublisher {
+                /** @var array{rabbitmq: array{publish_events: bool|string}} $config */
+                $config = $container->get('config');
+
+                if (! filter_var($config['rabbitmq']['publish_events'], FILTER_VALIDATE_BOOL)) {
+                    return $container->get(NullDeliveryEventPublisher::class);
+                }
+
+                return $container->get(RabbitMqDeliveryEventPublisher::class);
+            },
+            NullDeliveryEventPublisher::class => static fn (): NullDeliveryEventPublisher => new NullDeliveryEventPublisher(),
             ShipmentMessageMapper::class => static fn (): ShipmentMessageMapper => new ShipmentMessageMapper(),
             ShipmentRequestedHandler::class => static fn ($container): ShipmentRequestedHandler => new ShipmentRequestedHandler(
                 $container->get(ShipmentMessageMapper::class),
                 $container->get(ShipmentLifecycleService::class),
+                $container->get(DeliveryEventPublisher::class),
             ),
             ShipmentCancelRequestedHandler::class => static fn ($container): ShipmentCancelRequestedHandler => new ShipmentCancelRequestedHandler(
                 $container->get(ShipmentMessageMapper::class),
                 $container->get(ShipmentLifecycleService::class),
+                $container->get(DeliveryEventPublisher::class),
             ),
             ShipmentMessageDispatcher::class => static fn ($container): ShipmentMessageDispatcher => new ShipmentMessageDispatcher(
                 $container->get(ShipmentRequestedHandler::class),
@@ -111,6 +147,7 @@ final class ServiceDefinitions
                 $container->get(MessageHeaderValidator::class),
                 $container->get(ShipmentMessageDispatcher::class),
                 $container->get(DeliveryRequestFailureHandler::class),
+                $container->get(RabbitMqMessagePublisher::class),
             ),
         ];
     }

@@ -24,6 +24,7 @@ final class DeliveryRequestConsumer
         private readonly MessageHeaderValidator $headerValidator,
         private readonly ShipmentMessageDispatcher $dispatcher,
         private readonly DeliveryRequestFailureHandler $failureHandler,
+        private readonly RabbitMqMessagePublisher $messagePublisher,
     ) {
     }
 
@@ -66,6 +67,7 @@ final class DeliveryRequestConsumer
 
             return self::SUCCESS;
         } finally {
+            $this->messagePublisher->close();
             $channel->close();
             $connection->close();
         }

@@ -125,6 +125,24 @@ without requeue and routed to DLQ through queue dead-letter settings.
 Graceful shutdown is supported via `SIGTERM`/`SIGINT` when the `pcntl` extension
 is available.
 
+### Outbound events
+
+After processing incoming requests, the delivery mock publishes:
+
+| Routing key | When |
+| --- | --- |
+| `delivery.shipment.created.v1` | Shipment accepted by provider |
+| `delivery.shipment.creation_failed.v1` | Shipment creation rejected (contract mapper) |
+| `delivery.shipment.status_changed.v1` | Status transition (auto label generation after create) |
+| `delivery.shipment.cancelled.v1` | Shipment cancelled successfully |
+| `delivery.shipment.cancel_failed.v1` | Cancel rejected (not found / invalid state) |
+
+Outgoing headers copy `correlation_id` from the request, set `causation_id` to the
+incoming `message_id`, and generate a new `message_id` per published event.
+
+Set `DELIVERY_MOCK_PUBLISH_EVENTS=false` to disable RabbitMQ publishing in local
+tests while keeping handler behavior.
+
 ## Tests
 
 ```bash

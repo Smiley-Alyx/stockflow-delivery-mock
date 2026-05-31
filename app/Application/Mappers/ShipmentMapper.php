@@ -28,6 +28,7 @@ final class ShipmentMapper
             'status' => $shipment->status()->value,
             'carrier_code' => $shipment->carrierProfile()->carrierCode,
             'service_level' => $shipment->carrierProfile()->serviceLevel,
+            'tracking_number' => $shipment->trackingNumber(),
             'created_at' => $shipment->createdAt()->format(DATE_ATOM),
             'updated_at' => $shipment->updatedAt()->format(DATE_ATOM),
         ];

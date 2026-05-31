@@ -10,6 +10,8 @@ use App\Application\Handlers\ShipmentRequestedHandler;
 use App\Application\Mappers\ShipmentMessageMapper;
 use App\Domain\Delivery\Services\ShipmentLifecycleService;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestConsumer;
+use App\Infrastructure\Messaging\RabbitMq\NullDeliveryEventPublisher;
+use Tests\Support\Messaging\RecordingRabbitMqMessagePublisher;
 use App\Infrastructure\Persistence\InMemoryShipmentRepository;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestFailureHandler;
 use App\Infrastructure\Messaging\RabbitMq\MessageHeaderValidator;
@@ -25,9 +27,10 @@ final class DeliveryRequestConsumerTest extends TestCase
         $repository = new InMemoryShipmentRepository();
         $shipments = new ShipmentLifecycleService($repository);
         $mapper = new ShipmentMessageMapper();
+        $eventPublisher = new NullDeliveryEventPublisher();
         $dispatcher = new ShipmentMessageDispatcher(
-            new ShipmentRequestedHandler($mapper, $shipments),
-            new ShipmentCancelRequestedHandler($mapper, $shipments),
+            new ShipmentRequestedHandler($mapper, $shipments, $eventPublisher),
+            new ShipmentCancelRequestedHandler($mapper, $shipments, $eventPublisher),
         );
 
         $consumer = new DeliveryRequestConsumer(
@@ -37,6 +40,7 @@ final class DeliveryRequestConsumerTest extends TestCase
             new MessageHeaderValidator(),
             $dispatcher,
             new DeliveryRequestFailureHandler(),
+            new RecordingRabbitMqMessagePublisher(),
         );
 
         $this->assertFalse($consumer->shouldStop());
