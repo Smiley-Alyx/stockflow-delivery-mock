@@ -24,6 +24,7 @@ final class DeliveryRequestConsumer
         private readonly MessageHeaderValidator $headerValidator,
         private readonly ShipmentMessageDispatcher $dispatcher,
         private readonly DeliveryRequestFailureHandler $failureHandler,
+        private readonly DeliveryRetryRequeueHandler $retryRequeueHandler,
         private readonly RabbitMqMessagePublisher $messagePublisher,
     ) {
     }
@@ -54,9 +55,23 @@ final class DeliveryRequestConsumer
                 },
             );
 
+            $channel->basic_consume(
+                queue: $this->config->retryQueue,
+                consumer_tag: '',
+                no_local: false,
+                no_ack: false,
+                exclusive: false,
+                nowait: false,
+                callback: function (AMQPMessage $message) use ($channel): void {
+                    $this->retryRequeueHandler->handle($channel, $message);
+                },
+            );
+
             DeliveryStructuredLogger::info('delivery request consumer started', [
                 'queue' => $this->config->requestsQueue,
+                'retry_queue' => $this->config->retryQueue,
                 'exchange' => $this->config->exchange,
+                'max_retry_attempts' => $this->config->maxRetryAttempts,
             ]);
 
             while ($channel->is_consuming() && ! $this->shouldStop) {

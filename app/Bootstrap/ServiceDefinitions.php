@@ -19,9 +19,13 @@ use App\Http\Controllers\DebugController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ShipmentController;
 use App\Infrastructure\Messaging\RabbitMq\Contracts\DeliveryEventPublisher;
+use App\Infrastructure\Messaging\RabbitMq\DeliveryDlqPublisher;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestConsumer;
 use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestFailureHandler;
+use App\Infrastructure\Messaging\RabbitMq\DeliveryRequestRetryPublisher;
+use App\Infrastructure\Messaging\RabbitMq\DeliveryRetryRequeueHandler;
 use App\Infrastructure\Messaging\RabbitMq\MessageHeaderValidator;
+use App\Infrastructure\Messaging\RabbitMq\MessageRetryPolicy;
 use App\Infrastructure\Messaging\RabbitMq\IdempotentDeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\NullDeliveryEventPublisher;
 use App\Infrastructure\Messaging\RabbitMq\OutgoingMessageHeadersFactory;
@@ -118,6 +122,23 @@ final class ServiceDefinitions
                 $container->get(RabbitMqConnectionFactory::class),
             ),
             MessageHeaderValidator::class => static fn (): MessageHeaderValidator => new MessageHeaderValidator(),
+            MessageRetryPolicy::class => static fn ($container): MessageRetryPolicy => new MessageRetryPolicy(
+                $container->get(RabbitMqConfig::class),
+            ),
+            DeliveryRequestRetryPublisher::class => static fn ($container): DeliveryRequestRetryPublisher => new DeliveryRequestRetryPublisher(
+                $container->get(RabbitMqConfig::class),
+            ),
+            DeliveryDlqPublisher::class => static fn ($container): DeliveryDlqPublisher => new DeliveryDlqPublisher(
+                $container->get(RabbitMqConfig::class),
+            ),
+            DeliveryRetryRequeueHandler::class => static fn ($container): DeliveryRetryRequeueHandler => new DeliveryRetryRequeueHandler(
+                $container->get(RabbitMqConfig::class),
+            ),
+            DeliveryRequestFailureHandler::class => static fn ($container): DeliveryRequestFailureHandler => new DeliveryRequestFailureHandler(
+                $container->get(MessageRetryPolicy::class),
+                $container->get(DeliveryRequestRetryPublisher::class),
+                $container->get(DeliveryDlqPublisher::class),
+            ),
             OutgoingMessageHeadersFactory::class => static function ($container): OutgoingMessageHeadersFactory {
                 /** @var array{service_name: string} $config */
                 $config = $container->get('config');
@@ -161,7 +182,6 @@ final class ServiceDefinitions
                 $container->get(ShipmentRequestedHandler::class),
                 $container->get(ShipmentCancelRequestedHandler::class),
             ),
-            DeliveryRequestFailureHandler::class => static fn (): DeliveryRequestFailureHandler => new DeliveryRequestFailureHandler(),
             DeliveryRequestConsumer::class => static fn ($container): DeliveryRequestConsumer => new DeliveryRequestConsumer(
                 $container->get(RabbitMqConfig::class),
                 $container->get(RabbitMqConnectionFactory::class),
@@ -169,6 +189,7 @@ final class ServiceDefinitions
                 $container->get(MessageHeaderValidator::class),
                 $container->get(ShipmentMessageDispatcher::class),
                 $container->get(DeliveryRequestFailureHandler::class),
+                $container->get(DeliveryRetryRequeueHandler::class),
                 $container->get(RabbitMqMessagePublisher::class),
             ),
         ];
