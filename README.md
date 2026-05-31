@@ -9,6 +9,15 @@ The service is built with PHP 8.3 and Slim. It communicates with the marketplace
 through RabbitMQ and AsyncAPI contracts, and exposes an HTTP API for health
 checks, shipment inspection, and debug tooling.
 
+## StockFlow ecosystem
+
+Part of the StockFlow ecosystem:
+
+- [stockflow-market](https://github.com/Smiley-Alyx/stockflow-market) — marketplace backend case study
+- [stockflow-erp-mock](https://github.com/Smiley-Alyx/stockflow-erp-mock) — external ERP integration mock
+- [stockflow-payment-mock](https://github.com/Smiley-Alyx/stockflow-payment-mock) — external payment provider mock
+- [stockflow-delivery-mock](https://github.com/Smiley-Alyx/stockflow-delivery-mock) — external delivery provider mock (this repository)
+
 ## Local run
 
 ```bash
@@ -84,8 +93,12 @@ Docker Compose starts a separate worker container that runs `bin/consume-request
 | `POST` | `/shipments/{shipment_id}/mark-failed` | Mark shipment as delivery failed |
 | `POST` | `/shipments/{shipment_id}/cancel` | Cancel shipment |
 | `POST` | `/debug/reset` | Clear in-memory shipment state (requires debug mode) |
+| `GET` | `/debug/failure-mode` | Show active provider failure simulation mode |
+| `POST` | `/debug/failure-mode` | Set failure simulation mode |
+| `GET` | `/metrics` | Prometheus metrics (`DELIVERY_MOCK_METRICS_ENABLED`) |
 
-Additional debug, metrics, and messaging endpoints will be added in later steps.
+Additional messaging contract and portfolio docs live in [`docs/`](docs/) and
+[`contracts/`](contracts/).
 
 ## Configuration
 
@@ -107,7 +120,11 @@ Additional debug, metrics, and messaging endpoints will be added in later steps.
 | `RABBITMQ_SETUP_TOPOLOGY` | `true` | Declare exchange/queues on startup |
 | `RABBITMQ_PREFETCH_COUNT` | `1` | Consumer prefetch |
 | `RABBITMQ_CONSUMER_TIMEOUT_SECONDS` | `30` | `wait()` timeout for graceful shutdown |
-| `DELIVERY_MOCK_PUBLISH_EVENTS` | `true` | Enable outbound event publishing (step 7) |
+| `DELIVERY_MOCK_PUBLISH_EVENTS` | `true` | Enable outbound event publishing |
+| `DELIVERY_MOCK_METRICS_ENABLED` | `true` | Expose Prometheus metrics at `/metrics` |
+| `DELIVERY_MOCK_FAILURE_MODE_STATE_FILE` | `var/state/failure-mode.json` | Shared failure mode state path |
+| `RABBITMQ_MAX_RETRY_ATTEMPTS` | `3` | Max retry attempts before DLQ |
+| `RABBITMQ_RETRY_DELAY_MS` | `5000` | Delay before retry requeue |
 
 ## RabbitMQ consumer
 
@@ -149,6 +166,15 @@ tests while keeping handler behavior.
 make test
 ```
 
+## Documentation
+
+| Document | Description |
+| --- | --- |
+| [`docs/architecture.md`](docs/architecture.md) | Components, layering, trade-offs |
+| [`docs/delivery-flow.md`](docs/delivery-flow.md) | Sequence diagrams and status model |
+| [`docs/failure-modes.md`](docs/failure-modes.md) | Simulated failures, retry/DLQ behavior |
+| [`docs/demo.md`](docs/demo.md) | Local demo commands |
+
 ## Messaging contracts
 
 AsyncAPI contract, JSON Schemas, and examples live in [`contracts/`](contracts/).
@@ -157,7 +183,8 @@ correlation/idempotency rules, and RabbitMQ topology.
 
 ## Portfolio scope
 
-This repository is part of a highload-oriented marketplace backend case study.
+This repository is part of the [StockFlow ecosystem](#stockflow-ecosystem): a
+highload-oriented marketplace backend case study with external service mocks.
 It demonstrates async integration patterns, idempotent message handling,
 retry/DLQ flows, failure simulation, and observability for an external delivery
 provider boundary.
