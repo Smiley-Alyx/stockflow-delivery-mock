@@ -9,6 +9,7 @@ use App\Infrastructure\Messaging\RabbitMq\Exceptions\InvalidMessageException;
 use App\Support\DeliveryLogContext;
 use App\Support\DeliveryStructuredLogger;
 use PhpAmqpLib\Channel\AMQPChannel;
+use PhpAmqpLib\Exception\AMQPTimeoutException;
 use PhpAmqpLib\Message\AMQPMessage;
 use Throwable;
 
@@ -76,7 +77,11 @@ final class DeliveryRequestConsumer
             ]);
 
             while ($channel->is_consuming() && ! $this->shouldStop) {
-                $channel->wait(null, false, $this->config->consumerTimeoutSeconds);
+                try {
+                    $channel->wait(null, false, $this->config->consumerTimeoutSeconds);
+                } catch (AMQPTimeoutException) {
+                    // Poll again so signal handlers can stop an idle consumer.
+                }
             }
 
             DeliveryStructuredLogger::info('delivery request consumer stopped gracefully');
