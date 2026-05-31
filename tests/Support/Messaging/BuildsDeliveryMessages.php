@@ -10,6 +10,43 @@ use App\Infrastructure\Messaging\RabbitMq\MessageHeaders;
 trait BuildsDeliveryMessages
 {
     /**
+     * @return array<string, mixed>
+     */
+    protected function shipmentRequestPayload(
+        string $shipmentId = 'shp_integration_001',
+        string $orderId = 'ord_integration_001',
+        ?array $deliveryAddress = null,
+        ?array $carrierProfile = null,
+    ): array {
+        return [
+            'shipment_id' => $shipmentId,
+            'order_id' => $orderId,
+            'delivery_address' => $deliveryAddress ?? \Tests\Support\DeliveryTestFixtures::deliveryAddress()->toArray(),
+            'carrier_profile' => $carrierProfile ?? \Tests\Support\DeliveryTestFixtures::carrierProfile()->toArray(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function cancelRequestPayload(
+        string $shipmentId,
+        string $orderId,
+        ?string $reason = 'customer_cancelled',
+    ): array {
+        $payload = [
+            'shipment_id' => $shipmentId,
+            'order_id' => $orderId,
+        ];
+
+        if ($reason !== null) {
+            $payload['reason'] = $reason;
+        }
+
+        return $payload;
+    }
+
+    /**
      * @param array<string, mixed> $payload
      */
     protected function incoming(
