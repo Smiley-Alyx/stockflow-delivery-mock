@@ -1,0 +1,16 @@
+.PHONY: docker-down docker-up install serve test
+
+install:
+	composer install
+
+serve:
+	php -S 0.0.0.0:8082 -t public public/index.php
+
+test:
+	./vendor/bin/pest
+
+docker-up:
+	docker compose up --build -d
+
+docker-down:
+	docker compose down
