@@ -41,12 +41,6 @@ final class RabbitMqMessagePublisherTest extends TestCase
 
         $publisher = new RabbitMqMessagePublisher(RabbitMqTestConfig::make(), $connectionFactory);
 
-        try {
-            $publisher->publish($this->event());
-            $this->fail('Expected the first publish to fail.');
-        } catch (RuntimeException) {
-        }
-
         $publisher->publish($this->event());
     }
 

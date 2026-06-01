@@ -34,15 +34,17 @@ class RabbitMqMessagePublisher
         );
 
         try {
-            $this->channel()->basic_publish(
-                $message,
-                $this->config->exchange,
-                $event->routingKey,
-            );
-        } catch (Throwable $exception) {
+            $this->publishMessage($message, $event->routingKey);
+        } catch (Throwable) {
             $this->discardConnection();
 
-            throw $exception;
+            try {
+                $this->publishMessage($message, $event->routingKey);
+            } catch (Throwable $exception) {
+                $this->discardConnection();
+
+                throw $exception;
+            }
         }
     }
 
@@ -66,6 +68,15 @@ class RabbitMqMessagePublisher
         $this->channel = $this->connection->channel();
 
         return $this->channel;
+    }
+
+    private function publishMessage(AMQPMessage $message, string $routingKey): void
+    {
+        $this->channel()->basic_publish(
+            $message,
+            $this->config->exchange,
+            $routingKey,
+        );
     }
 
     private function discardConnection(): void
