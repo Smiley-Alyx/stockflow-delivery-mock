@@ -6,7 +6,7 @@ namespace App\Infrastructure\Messaging\RabbitMq;
 
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 
-final class RabbitMqConnectionFactory
+class RabbitMqConnectionFactory
 {
     public function __construct(
         private readonly RabbitMqConfig $config,

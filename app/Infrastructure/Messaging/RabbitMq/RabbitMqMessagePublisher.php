@@ -8,6 +8,7 @@ use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AbstractConnection;
 use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Wire\AMQPTable;
+use Throwable;
 
 class RabbitMqMessagePublisher
 {
@@ -32,35 +33,60 @@ class RabbitMqMessagePublisher
             ],
         );
 
-        $this->channel()->basic_publish(
-            $message,
-            $this->config->exchange,
-            $event->routingKey,
-        );
+        try {
+            $this->channel()->basic_publish(
+                $message,
+                $this->config->exchange,
+                $event->routingKey,
+            );
+        } catch (Throwable $exception) {
+            $this->discardConnection();
+
+            throw $exception;
+        }
     }
 
     public function close(): void
     {
-        if ($this->channel !== null) {
-            $this->channel->close();
-            $this->channel = null;
-        }
-
-        if ($this->connection !== null) {
-            $this->connection->close();
-            $this->connection = null;
-        }
+        $this->discardConnection();
     }
 
     private function channel(): AMQPChannel
     {
-        if ($this->channel !== null) {
+        if (
+            $this->channel !== null
+            && $this->channel->is_open()
+            && $this->connection?->isConnected()
+        ) {
             return $this->channel;
         }
 
+        $this->discardConnection();
         $this->connection = $this->connectionFactory->create();
         $this->channel = $this->connection->channel();
 
         return $this->channel;
+    }
+
+    private function discardConnection(): void
+    {
+        $channel = $this->channel;
+        $connection = $this->connection;
+        $this->channel = null;
+        $this->connection = null;
+
+        try {
+            if ($channel?->is_open()) {
+                $channel->close();
+            }
+        } catch (Throwable) {
+        }
+
+        try {
+            if ($connection?->isConnected()) {
+                $connection->close();
+            }
+        } catch (Throwable) {
+        }
     }
 }
